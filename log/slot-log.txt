@@ -1,0 +1,818 @@
+best model saved at: 201
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[202/240][0/391][client-0] train loss: 0.2148 cross-entropy loss: 0.2148
+[CEM-GATE][SHUTOFF step=76800] classes=10 gate_d=0.501 hard_gate=0.967 base=8.841
+[CEM-GATE][SHUTOFF step=77000] classes=10 gate_d=0.500 hard_gate=0.959 base=8.832
+log--[202/240][390/391][client-0] train loss: 0.1943 cross-entropy loss: 0.1943
+Epoch 0	Test (client-0):	Loss 0.6577 (0.6577)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7220 (0.6134)	Prec@1 80.469 (84.850)
+ * Prec@1 84.620
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[203/240][0/391][client-0] train loss: 0.3782 cross-entropy loss: 0.3782
+[CEM-GATE][SHUTOFF step=77200] classes=10 gate_d=0.500 hard_gate=0.962 base=8.846
+[CEM-GATE][SHUTOFF step=77400] classes=10 gate_d=0.500 hard_gate=0.974 base=8.857
+log--[203/240][390/391][client-0] train loss: 0.1898 cross-entropy loss: 0.1898
+Epoch 0	Test (client-0):	Loss 0.6327 (0.6327)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7181 (0.6112)	Prec@1 83.594 (84.773)
+ * Prec@1 84.890
+best model saved at: 203
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[204/240][0/391][client-0] train loss: 0.1943 cross-entropy loss: 0.1943
+[CEM-GATE][SHUTOFF step=77600] classes=10 gate_d=0.499 hard_gate=0.969 base=8.845
+[CEM-GATE][SHUTOFF step=77800] classes=10 gate_d=0.499 hard_gate=0.961 base=8.819
+log--[204/240][390/391][client-0] train loss: 0.1910 cross-entropy loss: 0.1910
+Epoch 0	Test (client-0):	Loss 0.6860 (0.6860)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.6747 (0.6056)	Prec@1 82.031 (84.881)
+ * Prec@1 84.910
+best model saved at: 204
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[205/240][0/391][client-0] train loss: 0.1960 cross-entropy loss: 0.1960
+[CEM-GATE][SHUTOFF step=78000] classes=10 gate_d=0.501 hard_gate=0.960 base=8.840
+[CEM-GATE][SHUTOFF step=78200] classes=10 gate_d=0.500 hard_gate=0.961 base=8.823
+log--[205/240][390/391][client-0] train loss: 0.1884 cross-entropy loss: 0.1884
+Epoch 0	Test (client-0):	Loss 0.7257 (0.7257)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.7142 (0.6177)	Prec@1 82.812 (84.344)
+ * Prec@1 84.600
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[206/240][0/391][client-0] train loss: 0.2142 cross-entropy loss: 0.2142
+[CEM-GATE][SHUTOFF step=78400] classes=10 gate_d=0.500 hard_gate=0.946 base=8.774
+log--[206/240][390/391][client-0] train loss: 0.1868 cross-entropy loss: 0.1868
+Epoch 0	Test (client-0):	Loss 0.7160 (0.7160)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.6481 (0.6261)	Prec@1 82.031 (84.544)
+ * Prec@1 84.690
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[207/240][0/391][client-0] train loss: 0.2455 cross-entropy loss: 0.2455
+[CEM-GATE][SHUTOFF step=78600] classes=10 gate_d=0.500 hard_gate=0.950 base=8.779
+[CEM-GATE][SHUTOFF step=78800] classes=10 gate_d=0.499 hard_gate=0.963 base=8.850
+log--[207/240][390/391][client-0] train loss: 0.1849 cross-entropy loss: 0.1849
+Epoch 0	Test (client-0):	Loss 0.6800 (0.6800)	Prec@1 83.594 (83.594)
+Epoch 50	Test (client-0):	Loss 0.7390 (0.6216)	Prec@1 80.469 (84.697)
+ * Prec@1 84.790
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[208/240][0/391][client-0] train loss: 0.2150 cross-entropy loss: 0.2150
+[CEM-GATE][SHUTOFF step=79000] classes=10 gate_d=0.500 hard_gate=0.965 base=8.836
+[CEM-GATE][SHUTOFF step=79200] classes=10 gate_d=0.500 hard_gate=0.965 base=8.832
+log--[208/240][390/391][client-0] train loss: 0.1814 cross-entropy loss: 0.1814
+Epoch 0	Test (client-0):	Loss 0.7342 (0.7342)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7168 (0.6530)	Prec@1 85.156 (84.069)
+ * Prec@1 84.620
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[209/240][0/391][client-0] train loss: 0.1516 cross-entropy loss: 0.1516
+[CEM-GATE][SHUTOFF step=79400] classes=10 gate_d=0.500 hard_gate=0.965 base=8.856
+[CEM-GATE][SHUTOFF step=79600] classes=10 gate_d=0.500 hard_gate=0.960 base=8.807
+log--[209/240][390/391][client-0] train loss: 0.1821 cross-entropy loss: 0.1821
+Epoch 0	Test (client-0):	Loss 0.7621 (0.7621)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.6862 (0.6354)	Prec@1 82.812 (84.115)
+ * Prec@1 84.380
+lambd value is: 16.0 learning rate is: 0.00040000000000000013
+Train in V2_epoch style
+log--[210/240][0/391][client-0] train loss: 0.2163 cross-entropy loss: 0.2163
+[CEM-GATE][SHUTOFF step=79800] classes=10 gate_d=0.500 hard_gate=0.962 base=8.836
+[CEM-GATE][SHUTOFF step=80000] classes=10 gate_d=0.499 hard_gate=0.966 base=8.833
+log--[210/240][390/391][client-0] train loss: 0.1640 cross-entropy loss: 0.1640
+Epoch 0	Test (client-0):	Loss 0.7096 (0.7096)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.6918 (0.6292)	Prec@1 83.594 (84.666)
+ * Prec@1 84.860
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[211/240][0/391][client-0] train loss: 0.2388 cross-entropy loss: 0.2388
+[CEM-GATE][SHUTOFF step=80200] classes=10 gate_d=0.499 hard_gate=0.958 base=8.825
+[CEM-GATE][SHUTOFF step=80400] classes=10 gate_d=0.499 hard_gate=0.965 base=8.841
+log--[211/240][390/391][client-0] train loss: 0.1632 cross-entropy loss: 0.1632
+Epoch 0	Test (client-0):	Loss 0.7981 (0.7981)	Prec@1 79.688 (79.688)
+Epoch 50	Test (client-0):	Loss 0.7046 (0.6255)	Prec@1 84.375 (84.498)
+ * Prec@1 84.610
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[212/240][0/391][client-0] train loss: 0.1347 cross-entropy loss: 0.1347
+[CEM-GATE][SHUTOFF step=80600] classes=10 gate_d=0.500 hard_gate=0.962 base=8.824
+[CEM-GATE][SHUTOFF step=80800] classes=10 gate_d=0.500 hard_gate=0.962 base=8.833
+log--[212/240][390/391][client-0] train loss: 0.1597 cross-entropy loss: 0.1597
+Epoch 0	Test (client-0):	Loss 0.7451 (0.7451)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.6782 (0.6337)	Prec@1 83.594 (84.268)
+ * Prec@1 84.520
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[213/240][0/391][client-0] train loss: 0.2191 cross-entropy loss: 0.2191
+[CEM-GATE][SHUTOFF step=81000] classes=10 gate_d=0.500 hard_gate=0.973 base=8.859
+[CEM-GATE][SHUTOFF step=81200] classes=10 gate_d=0.501 hard_gate=0.955 base=8.816
+log--[213/240][390/391][client-0] train loss: 0.1596 cross-entropy loss: 0.1596
+Epoch 0	Test (client-0):	Loss 0.7218 (0.7218)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.6911 (0.6356)	Prec@1 83.594 (84.237)
+ * Prec@1 84.500
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[214/240][0/391][client-0] train loss: 0.2265 cross-entropy loss: 0.2265
+[CEM-GATE][SHUTOFF step=81400] classes=10 gate_d=0.500 hard_gate=0.964 base=8.828
+[CEM-GATE][SHUTOFF step=81600] classes=10 gate_d=0.500 hard_gate=0.959 base=8.818
+log--[214/240][390/391][client-0] train loss: 0.1539 cross-entropy loss: 0.1539
+Epoch 0	Test (client-0):	Loss 0.7152 (0.7152)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.6618 (0.6280)	Prec@1 82.812 (84.651)
+ * Prec@1 84.790
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[215/240][0/391][client-0] train loss: 0.1396 cross-entropy loss: 0.1396
+[CEM-GATE][SHUTOFF step=81800] classes=10 gate_d=0.500 hard_gate=0.961 base=8.832
+[CEM-GATE][SHUTOFF step=82000] classes=10 gate_d=0.500 hard_gate=0.965 base=8.832
+log--[215/240][390/391][client-0] train loss: 0.1559 cross-entropy loss: 0.1559
+Epoch 0	Test (client-0):	Loss 0.7199 (0.7199)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7197 (0.6343)	Prec@1 85.938 (84.406)
+ * Prec@1 84.570
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[216/240][0/391][client-0] train loss: 0.1007 cross-entropy loss: 0.1007
+[CEM-GATE][SHUTOFF step=82200] classes=10 gate_d=0.500 hard_gate=0.960 base=8.817
+[CEM-GATE][SHUTOFF step=82400] classes=10 gate_d=0.500 hard_gate=0.957 base=8.816
+log--[216/240][390/391][client-0] train loss: 0.1518 cross-entropy loss: 0.1518
+Epoch 0	Test (client-0):	Loss 0.7345 (0.7345)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.6711 (0.6377)	Prec@1 83.594 (84.544)
+ * Prec@1 84.820
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[217/240][0/391][client-0] train loss: 0.0815 cross-entropy loss: 0.0815
+[CEM-GATE][SHUTOFF step=82600] classes=10 gate_d=0.500 hard_gate=0.960 base=8.828
+[CEM-GATE][SHUTOFF step=82800] classes=10 gate_d=0.500 hard_gate=0.960 base=8.825
+log--[217/240][390/391][client-0] train loss: 0.1544 cross-entropy loss: 0.1544
+Epoch 0	Test (client-0):	Loss 0.7697 (0.7697)	Prec@1 79.688 (79.688)
+Epoch 50	Test (client-0):	Loss 0.6980 (0.6387)	Prec@1 85.156 (84.666)
+ * Prec@1 84.900
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[218/240][0/391][client-0] train loss: 0.2410 cross-entropy loss: 0.2410
+[CEM-GATE][SHUTOFF step=83000] classes=10 gate_d=0.499 hard_gate=0.959 base=8.806
+[CEM-GATE][SHUTOFF step=83200] classes=10 gate_d=0.500 hard_gate=0.963 base=8.835
+log--[218/240][390/391][client-0] train loss: 0.1564 cross-entropy loss: 0.1564
+Epoch 0	Test (client-0):	Loss 0.7375 (0.7375)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.7177 (0.6339)	Prec@1 84.375 (84.712)
+ * Prec@1 84.850
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[219/240][0/391][client-0] train loss: 0.0968 cross-entropy loss: 0.0968
+[CEM-GATE][SHUTOFF step=83400] classes=10 gate_d=0.499 hard_gate=0.956 base=8.803
+[CEM-GATE][SHUTOFF step=83600] classes=10 gate_d=0.501 hard_gate=0.957 base=8.810
+log--[219/240][390/391][client-0] train loss: 0.1537 cross-entropy loss: 0.1537
+Epoch 0	Test (client-0):	Loss 0.7219 (0.7219)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7003 (0.6430)	Prec@1 82.812 (84.467)
+ * Prec@1 84.770
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[220/240][0/391][client-0] train loss: 0.1680 cross-entropy loss: 0.1680
+[CEM-GATE][SHUTOFF step=83800] classes=10 gate_d=0.499 hard_gate=0.956 base=8.824
+[CEM-GATE][SHUTOFF step=84000] classes=10 gate_d=0.501 hard_gate=0.962 base=8.827
+log--[220/240][390/391][client-0] train loss: 0.1547 cross-entropy loss: 0.1547
+Epoch 0	Test (client-0):	Loss 0.7504 (0.7504)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.6933 (0.6434)	Prec@1 85.156 (84.697)
+ * Prec@1 84.880
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[221/240][0/391][client-0] train loss: 0.2067 cross-entropy loss: 0.2067
+[CEM-GATE][SHUTOFF step=84200] classes=10 gate_d=0.499 hard_gate=0.958 base=8.828
+[CEM-GATE][SHUTOFF step=84400] classes=10 gate_d=0.500 hard_gate=0.961 base=8.849
+log--[221/240][390/391][client-0] train loss: 0.1509 cross-entropy loss: 0.1509
+Epoch 0	Test (client-0):	Loss 0.7281 (0.7281)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.6697 (0.6464)	Prec@1 82.812 (84.513)
+ * Prec@1 84.530
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[222/240][0/391][client-0] train loss: 0.1177 cross-entropy loss: 0.1177
+[CEM-GATE][SHUTOFF step=84600] classes=10 gate_d=0.499 hard_gate=0.967 base=8.844
+[CEM-GATE][SHUTOFF step=84800] classes=10 gate_d=0.500 hard_gate=0.963 base=8.850
+log--[222/240][390/391][client-0] train loss: 0.1455 cross-entropy loss: 0.1455
+Epoch 0	Test (client-0):	Loss 0.7246 (0.7246)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.7121 (0.6509)	Prec@1 84.375 (84.482)
+ * Prec@1 84.670
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[223/240][0/391][client-0] train loss: 0.1837 cross-entropy loss: 0.1837
+[CEM-GATE][SHUTOFF step=85000] classes=10 gate_d=0.501 hard_gate=0.960 base=8.810
+[CEM-GATE][SHUTOFF step=85200] classes=10 gate_d=0.499 hard_gate=0.962 base=8.839
+log--[223/240][390/391][client-0] train loss: 0.1447 cross-entropy loss: 0.1447
+Epoch 0	Test (client-0):	Loss 0.7515 (0.7515)	Prec@1 78.906 (78.906)
+Epoch 50	Test (client-0):	Loss 0.6905 (0.6449)	Prec@1 83.594 (84.727)
+ * Prec@1 84.850
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[224/240][0/391][client-0] train loss: 0.1183 cross-entropy loss: 0.1183
+[CEM-GATE][SHUTOFF step=85400] classes=10 gate_d=0.499 hard_gate=0.961 base=8.815
+[CEM-GATE][SHUTOFF step=85600] classes=10 gate_d=0.500 hard_gate=0.967 base=8.837
+log--[224/240][390/391][client-0] train loss: 0.1452 cross-entropy loss: 0.1452
+Epoch 0	Test (client-0):	Loss 0.7259 (0.7259)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.6988 (0.6406)	Prec@1 84.375 (84.651)
+ * Prec@1 84.950
+best model saved at: 224
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[225/240][0/391][client-0] train loss: 0.1820 cross-entropy loss: 0.1820
+[CEM-GATE][SHUTOFF step=85800] classes=10 gate_d=0.500 hard_gate=0.954 base=8.791
+[CEM-GATE][SHUTOFF step=86000] classes=10 gate_d=0.500 hard_gate=0.965 base=8.844
+log--[225/240][390/391][client-0] train loss: 0.1467 cross-entropy loss: 0.1467
+Epoch 0	Test (client-0):	Loss 0.7352 (0.7352)	Prec@1 79.688 (79.688)
+Epoch 50	Test (client-0):	Loss 0.6795 (0.6487)	Prec@1 84.375 (84.605)
+ * Prec@1 84.760
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[226/240][0/391][client-0] train loss: 0.1962 cross-entropy loss: 0.1962
+[CEM-GATE][SHUTOFF step=86200] classes=10 gate_d=0.500 hard_gate=0.970 base=8.865
+[CEM-GATE][SHUTOFF step=86400] classes=10 gate_d=0.500 hard_gate=0.969 base=8.848
+log--[226/240][390/391][client-0] train loss: 0.1451 cross-entropy loss: 0.1451
+Epoch 0	Test (client-0):	Loss 0.7656 (0.7656)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.6399 (0.6514)	Prec@1 84.375 (84.574)
+ * Prec@1 84.820
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[227/240][0/391][client-0] train loss: 0.1754 cross-entropy loss: 0.1754
+[CEM-GATE][SHUTOFF step=86600] classes=10 gate_d=0.499 hard_gate=0.963 base=8.834
+[CEM-GATE][SHUTOFF step=86800] classes=10 gate_d=0.500 hard_gate=0.973 base=8.868
+log--[227/240][390/391][client-0] train loss: 0.1431 cross-entropy loss: 0.1431
+Epoch 0	Test (client-0):	Loss 0.7340 (0.7340)	Prec@1 80.469 (80.469)
+Epoch 50	Test (client-0):	Loss 0.7213 (0.6522)	Prec@1 82.031 (84.635)
+ * Prec@1 84.790
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[228/240][0/391][client-0] train loss: 0.0773 cross-entropy loss: 0.0773
+[CEM-GATE][SHUTOFF step=87000] classes=10 gate_d=0.499 hard_gate=0.960 base=8.814
+log--[228/240][390/391][client-0] train loss: 0.1390 cross-entropy loss: 0.1390
+Epoch 0	Test (client-0):	Loss 0.8049 (0.8049)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.7191 (0.6578)	Prec@1 82.031 (84.697)
+ * Prec@1 84.760
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[229/240][0/391][client-0] train loss: 0.0786 cross-entropy loss: 0.0786
+[CEM-GATE][SHUTOFF step=87200] classes=10 gate_d=0.500 hard_gate=0.965 base=8.844
+[CEM-GATE][SHUTOFF step=87400] classes=10 gate_d=0.500 hard_gate=0.964 base=8.830
+log--[229/240][390/391][client-0] train loss: 0.1412 cross-entropy loss: 0.1412
+Epoch 0	Test (client-0):	Loss 0.7485 (0.7485)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.6901 (0.6495)	Prec@1 83.594 (84.635)
+ * Prec@1 84.900
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[230/240][0/391][client-0] train loss: 0.0795 cross-entropy loss: 0.0795
+[CEM-GATE][SHUTOFF step=87600] classes=10 gate_d=0.500 hard_gate=0.969 base=8.851
+[CEM-GATE][SHUTOFF step=87800] classes=10 gate_d=0.500 hard_gate=0.964 base=8.843
+log--[230/240][390/391][client-0] train loss: 0.1398 cross-entropy loss: 0.1398
+Epoch 0	Test (client-0):	Loss 0.7404 (0.7404)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7436 (0.6585)	Prec@1 82.812 (84.390)
+ * Prec@1 84.640
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[231/240][0/391][client-0] train loss: 0.0923 cross-entropy loss: 0.0923
+[CEM-GATE][SHUTOFF step=88000] classes=10 gate_d=0.500 hard_gate=0.965 base=8.851
+[CEM-GATE][SHUTOFF step=88200] classes=10 gate_d=0.500 hard_gate=0.964 base=8.822
+log--[231/240][390/391][client-0] train loss: 0.1422 cross-entropy loss: 0.1422
+Epoch 0	Test (client-0):	Loss 0.7665 (0.7665)	Prec@1 83.594 (83.594)
+Epoch 50	Test (client-0):	Loss 0.7329 (0.6567)	Prec@1 84.375 (84.528)
+ * Prec@1 84.670
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[232/240][0/391][client-0] train loss: 0.1934 cross-entropy loss: 0.1934
+[CEM-GATE][SHUTOFF step=88400] classes=10 gate_d=0.499 hard_gate=0.968 base=8.846
+[CEM-GATE][SHUTOFF step=88600] classes=10 gate_d=0.501 hard_gate=0.968 base=8.834
+log--[232/240][390/391][client-0] train loss: 0.1423 cross-entropy loss: 0.1423
+Epoch 0	Test (client-0):	Loss 0.7355 (0.7355)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.6966 (0.6608)	Prec@1 83.594 (84.452)
+ * Prec@1 84.810
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[233/240][0/391][client-0] train loss: 0.1568 cross-entropy loss: 0.1568
+[CEM-GATE][SHUTOFF step=88800] classes=10 gate_d=0.500 hard_gate=0.961 base=8.847
+[CEM-GATE][SHUTOFF step=89000] classes=10 gate_d=0.499 hard_gate=0.966 base=8.849
+log--[233/240][390/391][client-0] train loss: 0.1396 cross-entropy loss: 0.1396
+Epoch 0	Test (client-0):	Loss 0.7436 (0.7436)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7468 (0.6634)	Prec@1 82.812 (84.666)
+ * Prec@1 84.850
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[234/240][0/391][client-0] train loss: 0.0891 cross-entropy loss: 0.0891
+[CEM-GATE][SHUTOFF step=89200] classes=10 gate_d=0.500 hard_gate=0.944 base=8.773
+[CEM-GATE][SHUTOFF step=89400] classes=10 gate_d=0.500 hard_gate=0.962 base=8.835
+log--[234/240][390/391][client-0] train loss: 0.1413 cross-entropy loss: 0.1413
+Epoch 0	Test (client-0):	Loss 0.7473 (0.7473)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.7749 (0.6704)	Prec@1 83.594 (84.789)
+ * Prec@1 84.920
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[235/240][0/391][client-0] train loss: 0.0754 cross-entropy loss: 0.0754
+[CEM-GATE][SHUTOFF step=89600] classes=10 gate_d=0.500 hard_gate=0.957 base=8.820
+[CEM-GATE][SHUTOFF step=89800] classes=10 gate_d=0.500 hard_gate=0.956 base=8.808
+log--[235/240][390/391][client-0] train loss: 0.1408 cross-entropy loss: 0.1408
+Epoch 0	Test (client-0):	Loss 0.7223 (0.7223)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.7488 (0.6617)	Prec@1 82.812 (84.620)
+ * Prec@1 84.740
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[236/240][0/391][client-0] train loss: 0.2407 cross-entropy loss: 0.2407
+[CEM-GATE][SHUTOFF step=90000] classes=10 gate_d=0.499 hard_gate=0.959 base=8.804
+[CEM-GATE][SHUTOFF step=90200] classes=10 gate_d=0.499 hard_gate=0.960 base=8.832
+log--[236/240][390/391][client-0] train loss: 0.1408 cross-entropy loss: 0.1408
+Epoch 0	Test (client-0):	Loss 0.7233 (0.7233)	Prec@1 83.594 (83.594)
+Epoch 50	Test (client-0):	Loss 0.6901 (0.6697)	Prec@1 83.594 (84.344)
+ * Prec@1 84.520
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[237/240][0/391][client-0] train loss: 0.0591 cross-entropy loss: 0.0591
+[CEM-GATE][SHUTOFF step=90400] classes=10 gate_d=0.500 hard_gate=0.964 base=8.821
+[CEM-GATE][SHUTOFF step=90600] classes=10 gate_d=0.500 hard_gate=0.955 base=8.796
+log--[237/240][390/391][client-0] train loss: 0.1383 cross-entropy loss: 0.1383
+Epoch 0	Test (client-0):	Loss 0.7388 (0.7388)	Prec@1 82.812 (82.812)
+Epoch 50	Test (client-0):	Loss 0.7447 (0.6588)	Prec@1 84.375 (84.421)
+ * Prec@1 84.700
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[238/240][0/391][client-0] train loss: 0.1477 cross-entropy loss: 0.1477
+[CEM-GATE][SHUTOFF step=90800] classes=10 gate_d=0.501 hard_gate=0.969 base=8.853
+[CEM-GATE][SHUTOFF step=91000] classes=10 gate_d=0.501 hard_gate=0.952 base=8.794
+log--[238/240][390/391][client-0] train loss: 0.1332 cross-entropy loss: 0.1332
+Epoch 0	Test (client-0):	Loss 0.7368 (0.7368)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7355 (0.6737)	Prec@1 82.812 (84.498)
+ * Prec@1 84.640
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[239/240][0/391][client-0] train loss: 0.0954 cross-entropy loss: 0.0954
+[CEM-GATE][SHUTOFF step=91200] classes=10 gate_d=0.499 hard_gate=0.957 base=8.812
+[CEM-GATE][SHUTOFF step=91400] classes=10 gate_d=0.501 hard_gate=0.968 base=8.853
+log--[239/240][390/391][client-0] train loss: 0.1370 cross-entropy loss: 0.1370
+Epoch 0	Test (client-0):	Loss 0.7765 (0.7765)	Prec@1 81.250 (81.250)
+Epoch 50	Test (client-0):	Loss 0.7110 (0.6699)	Prec@1 84.375 (84.697)
+ * Prec@1 84.930
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Train in V2_epoch style
+log--[240/240][0/391][client-0] train loss: 0.1739 cross-entropy loss: 0.1739
+[CEM-GATE][SHUTOFF step=91600] classes=10 gate_d=0.499 hard_gate=0.962 base=8.835
+[CEM-GATE][SHUTOFF step=91800] classes=10 gate_d=0.499 hard_gate=0.965 base=8.830
+log--[240/240][390/391][client-0] train loss: 0.1353 cross-entropy loss: 0.1353
+Epoch 0	Test (client-0):	Loss 0.7468 (0.7468)	Prec@1 83.594 (83.594)
+Epoch 50	Test (client-0):	Loss 0.7502 (0.6733)	Prec@1 83.594 (84.865)
+ * Prec@1 85.040
+best model saved at: 240
+lambd value is: 16.0 learning rate is: 8.000000000000002e-05
+Best Average Validation Accuracy is 85.04
+2025-10-15 03:26:46.693028: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2025-10-15 03:26:46.734041: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX512_FP16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2025-10-15 03:26:47.526145: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+Split Learning Scheme: Overall Cutting_layer 4/13
+Total number of batches per epoch for each client is  391
+32
+original channel size of smashed-data is 128
+added bottleneck, new channel size of smashed-data is 8
+local:
+Sequential(
+  (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (2): ReLU(inplace=True)
+  (3): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (4): Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (5): BatchNorm2d(128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (6): ReLU(inplace=True)
+  (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (8): Conv2d(128, 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (9): LCALayer()
+  (10): Sigmoid()
+)
+cloud:
+Sequential(
+  (0): Conv2d(8, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (1): Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (2): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (3): ReLU(inplace=True)
+  (4): Conv2d(256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (5): BatchNorm2d(256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (6): ReLU(inplace=True)
+  (7): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (8): Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (9): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (10): ReLU(inplace=True)
+  (11): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (12): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (13): ReLU(inplace=True)
+  (14): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (15): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (16): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (17): ReLU(inplace=True)
+  (18): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (19): BatchNorm2d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (20): ReLU(inplace=True)
+  (21): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+)
+classifier:
+Sequential(
+  (0): Dropout(p=0.5, inplace=False)
+  (1): Linear(in_features=512, out_features=512, bias=True)
+  (2): ReLU(inplace=True)
+  (3): Dropout(p=0.5, inplace=False)
+  (4): Linear(in_features=512, out_features=512, bias=True)
+  (5): ReLU(inplace=True)
+  (6): Linear(in_features=512, out_features=10, bias=True)
+)
+the test model is: best
+load client 0's local
+./saves/cifar10/SCA_new_infocons_sgm_lg1_thre0.125/pretrain_False_lambd_16_noise_0.025_epoch_240_bottleneck_noRELU_C8S1_log_1_ATstrength_0.3_lr_0.05_varthres_0.125/checkpoint_f_best.tar
+load cloud
+load classifier
+Model's smashed-data size is torch.Size([1, 8, 8, 8])
+Sequential(
+  85.26 k, 24.541% Params, 21.73 MMac, 13.891% MACs, 
+  (0): Conv2d(1.79 k, 0.516% Params, 1.84 MMac, 1.173% MACs, 3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (1): BatchNorm2d(128, 0.037% Params, 131.07 KMac, 0.084% MACs, 64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (2): ReLU(0, 0.000% Params, 65.54 KMac, 0.042% MACs, inplace=True)
+  (3): MaxPool2d(0, 0.000% Params, 65.54 KMac, 0.042% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (4): Conv2d(73.86 k, 21.260% Params, 18.91 MMac, 12.089% MACs, 64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (5): BatchNorm2d(256, 0.074% Params, 65.54 KMac, 0.042% MACs, 128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+  (6): ReLU(0, 0.000% Params, 32.77 KMac, 0.021% MACs, inplace=True)
+  (7): MaxPool2d(0, 0.000% Params, 32.77 KMac, 0.021% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  (8): Conv2d(9.22 k, 2.655% Params, 590.34 KMac, 0.377% MACs, 128, 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+  (9): LCALayer(0, 0.000% Params, 0.0 Mac, 0.000% MACs, )
+  (10): Sigmoid(0, 0.000% Params, 0.0 Mac, 0.000% MACs, )
+)
+FLOPs: 156.4 MMac, Parameters: 347.4 k
+VGG(
+  9.77 M, 97.388% Params, 155.22 MMac, 53.527% MACs, 
+  (local): Sequential(
+    85.26 k, 0.849% Params, 21.73 MMac, 7.492% MACs, 
+    (0): Conv2d(1.79 k, 0.018% Params, 1.84 MMac, 0.633% MACs, 3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): BatchNorm2d(128, 0.001% Params, 131.07 KMac, 0.045% MACs, 64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (2): ReLU(0, 0.000% Params, 65.54 KMac, 0.023% MACs, inplace=True)
+    (3): MaxPool2d(0, 0.000% Params, 65.54 KMac, 0.023% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (4): Conv2d(73.86 k, 0.736% Params, 18.91 MMac, 6.520% MACs, 64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(256, 0.003% Params, 65.54 KMac, 0.023% MACs, 128, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU(0, 0.000% Params, 32.77 KMac, 0.011% MACs, inplace=True)
+    (7): MaxPool2d(0, 0.000% Params, 32.77 KMac, 0.011% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): Conv2d(9.22 k, 0.092% Params, 590.34 KMac, 0.204% MACs, 128, 8, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): LCALayer(0, 0.000% Params, 0.0 Mac, 0.000% MACs, )
+    (10): Sigmoid(0, 0.000% Params, 0.0 Mac, 0.000% MACs, )
+  )
+  (cloud): Sequential(
+    9.16 M, 91.254% Params, 132.96 MMac, 45.852% MACs, 
+    (0): Conv2d(9.34 k, 0.093% Params, 598.02 KMac, 0.206% MACs, 8, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (1): Conv2d(295.17 k, 2.941% Params, 18.89 MMac, 6.515% MACs, 128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (2): BatchNorm2d(512, 0.005% Params, 32.77 KMac, 0.011% MACs, 256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (3): ReLU(0, 0.000% Params, 16.38 KMac, 0.006% MACs, inplace=True)
+    (4): Conv2d(590.08 k, 5.879% Params, 37.77 MMac, 13.024% MACs, 256, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (5): BatchNorm2d(512, 0.005% Params, 32.77 KMac, 0.011% MACs, 256, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (6): ReLU(0, 0.000% Params, 16.38 KMac, 0.006% MACs, inplace=True)
+    (7): MaxPool2d(0, 0.000% Params, 16.38 KMac, 0.006% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (8): Conv2d(1.18 M, 11.758% Params, 18.88 MMac, 6.512% MACs, 256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (9): BatchNorm2d(1.02 k, 0.010% Params, 16.38 KMac, 0.006% MACs, 512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (10): ReLU(0, 0.000% Params, 8.19 KMac, 0.003% MACs, inplace=True)
+    (11): Conv2d(2.36 M, 23.511% Params, 37.76 MMac, 13.021% MACs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (12): BatchNorm2d(1.02 k, 0.010% Params, 16.38 KMac, 0.006% MACs, 512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (13): ReLU(0, 0.000% Params, 8.19 KMac, 0.003% MACs, inplace=True)
+    (14): MaxPool2d(0, 0.000% Params, 8.19 KMac, 0.003% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+    (15): Conv2d(2.36 M, 23.511% Params, 9.44 MMac, 3.255% MACs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (16): BatchNorm2d(1.02 k, 0.010% Params, 4.1 KMac, 0.001% MACs, 512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (17): ReLU(0, 0.000% Params, 2.05 KMac, 0.001% MACs, inplace=True)
+    (18): Conv2d(2.36 M, 23.511% Params, 9.44 MMac, 3.255% MACs, 512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+    (19): BatchNorm2d(1.02 k, 0.010% Params, 4.1 KMac, 0.001% MACs, 512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+    (20): ReLU(0, 0.000% Params, 2.05 KMac, 0.001% MACs, inplace=True)
+    (21): MaxPool2d(0, 0.000% Params, 2.05 KMac, 0.001% MACs, kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
+  )
+  (classifier): Sequential(
+    530.44 k, 5.285% Params, 531.47 KMac, 0.183% MACs, 
+    (0): Dropout(0, 0.000% Params, 0.0 Mac, 0.000% MACs, p=0.5, inplace=False)
+    (1): Linear(262.66 k, 2.617% Params, 262.66 KMac, 0.091% MACs, in_features=512, out_features=512, bias=True)
+    (2): ReLU(0, 0.000% Params, 512.0 Mac, 0.000% MACs, inplace=True)
+    (3): Dropout(0, 0.000% Params, 0.0 Mac, 0.000% MACs, p=0.5, inplace=False)
+    (4): Linear(262.66 k, 2.617% Params, 262.66 KMac, 0.091% MACs, in_features=512, out_features=512, bias=True)
+    (5): ReLU(0, 0.000% Params, 512.0 Mac, 0.000% MACs, inplace=True)
+    (6): Linear(5.13 k, 0.051% Params, 5.13 KMac, 0.002% MACs, in_features=512, out_features=10, bias=True)
+  )
+)
+FLOPs: 289.97 MMac, Parameters: 10.04 M
+Model 1 Params: 347400, Model 2 Params: 10037138
+推理时间: 140.05 ms
+Epoch 0	Test (client-0):	Loss 0.8056 (0.8056)	Prec@1 82.031 (82.031)
+Epoch 50	Test (client-0):	Loss 0.7203 (0.6799)	Prec@1 85.156 (84.482)
+ * Prec@1 84.690
+Best Average Validation Accuracy is 84.69
+Generating IR ...... (may take a while)
+run the attack for training time
+1.0 torch.Size([1, 8, 8, 8])
+Epoch 1, Current LR: 0.0009990232305719944
+the pred acc is: 23.39
+epoch [1/50], train_loss 0.0365 (0.0415), val_loss 0.0511 (0.0366)
+Epoch 2, Current LR: 0.0009960967771506664
+the pred acc is: 25.25
+epoch [2/50], train_loss 0.0369 (0.0359), val_loss 0.0534 (0.0361)
+Epoch 3, Current LR: 0.0009912321891107007
+the pred acc is: 25.1
+epoch [3/50], train_loss 0.0366 (0.0352), val_loss 0.0356 (0.0349)
+Epoch 4, Current LR: 0.0009844486647586721
+the pred acc is: 26.05
+epoch [4/50], train_loss 0.0390 (0.0347), val_loss 0.0393 (0.0349)
+Epoch 5, Current LR: 0.0009757729755661009
+the pred acc is: 24.99
+epoch [5/50], train_loss 0.0348 (0.0344), val_loss 0.0389 (0.0347)
+Epoch 6, Current LR: 0.0009652393605146842
+the pred acc is: 25.54
+epoch [6/50], train_loss 0.0370 (0.0341), val_loss 0.0361 (0.0347)
+Epoch 7, Current LR: 0.0009528893909706795
+the pred acc is: 26.17
+epoch [7/50], train_loss 0.0345 (0.0340), val_loss 0.0370 (0.0345)
+Epoch 8, Current LR: 0.0009387718066217122
+the pred acc is: 26.1
+epoch [8/50], train_loss 0.0353 (0.0338), val_loss 0.0344 (0.0344)
+Epoch 9, Current LR: 0.0009229423231234972
+the pred acc is: 25.21
+epoch [9/50], train_loss 0.0325 (0.0338), val_loss 0.0365 (0.0342)
+Epoch 10, Current LR: 0.0009054634122155987
+the pred acc is: 26.31
+epoch [10/50], train_loss 0.0338 (0.0335), val_loss 0.0427 (0.0343)
+Epoch 11, Current LR: 0.0008864040551740153
+the pred acc is: 26.32
+epoch [11/50], train_loss 0.0342 (0.0334), val_loss 0.0383 (0.0341)
+Epoch 12, Current LR: 0.0008658394705735984
+the pred acc is: 26.09
+epoch [12/50], train_loss 0.0354 (0.0332), val_loss 0.0365 (0.0340)
+Epoch 13, Current LR: 0.0008438508174347006
+the pred acc is: 27.43
+epoch [13/50], train_loss 0.0342 (0.0331), val_loss 0.0394 (0.0341)
+Epoch 14, Current LR: 0.000820524874925601
+the pred acc is: 26.13
+epoch [14/50], train_loss 0.0349 (0.0330), val_loss 0.0274 (0.0340)
+Epoch 15, Current LR: 0.000795953699884774
+the pred acc is: 26.73
+epoch [15/50], train_loss 0.0353 (0.0328), val_loss 0.0421 (0.0338)
+Epoch 16, Current LR: 0.000770234263514603
+the pred acc is: 25.95
+epoch [16/50], train_loss 0.0350 (0.0327), val_loss 0.0316 (0.0337)
+Epoch 17, Current LR: 0.0007434680686803488
+the pred acc is: 26.27
+epoch [17/50], train_loss 0.0332 (0.0325), val_loss 0.0419 (0.0339)
+Epoch 18, Current LR: 0.0007157607493247108
+the pred acc is: 27.04
+epoch [18/50], train_loss 0.0349 (0.0323), val_loss 0.0353 (0.0337)
+Epoch 19, Current LR: 0.0006872216535789154
+the pred acc is: 26.57
+epoch [19/50], train_loss 0.0324 (0.0322), val_loss 0.0349 (0.0334)
+Epoch 20, Current LR: 0.0006579634122155987
+the pred acc is: 26.45
+epoch [20/50], train_loss 0.0349 (0.0320), val_loss 0.0266 (0.0334)
+Epoch 21, Current LR: 0.0006281014941466028
+the pred acc is: 26.24
+epoch [21/50], train_loss 0.0331 (0.0318), val_loss 0.0326 (0.0334)
+Epoch 22, Current LR: 0.0005977537507199335
+the pred acc is: 26.59
+epoch [22/50], train_loss 0.0371 (0.0316), val_loss 0.0324 (0.0334)
+Epoch 23, Current LR: 0.0005670399506143305
+the pred acc is: 26.74
+epoch [23/50], train_loss 0.0275 (0.0315), val_loss 0.0347 (0.0333)
+Epoch 24, Current LR: 0.0005360813071670099
+the pred acc is: 26.28
+epoch [24/50], train_loss 0.0378 (0.0312), val_loss 0.0468 (0.0332)
+Epoch 25, Current LR: 0.0005049999999999998
+the pred acc is: 26.5
+epoch [25/50], train_loss 0.0323 (0.0310), val_loss 0.0353 (0.0333)
+Epoch 26, Current LR: 0.0004739186928329897
+the pred acc is: 26.47
+epoch [26/50], train_loss 0.0278 (0.0308), val_loss 0.0339 (0.0333)
+Epoch 27, Current LR: 0.0004429600493856692
+the pred acc is: 25.93
+epoch [27/50], train_loss 0.0303 (0.0305), val_loss 0.0312 (0.0334)
+Epoch 28, Current LR: 0.0004122462492800661
+the pred acc is: 26.81
+epoch [28/50], train_loss 0.0312 (0.0303), val_loss 0.0343 (0.0333)
+Epoch 29, Current LR: 0.0003818985058533967
+the pred acc is: 26.82
+epoch [29/50], train_loss 0.0322 (0.0300), val_loss 0.0306 (0.0330)
+Epoch 30, Current LR: 0.00035203658778440103
+the pred acc is: 26.61
+epoch [30/50], train_loss 0.0313 (0.0298), val_loss 0.0316 (0.0331)
+Epoch 31, Current LR: 0.00032277834642108444
+the pred acc is: 26.54
+epoch [31/50], train_loss 0.0317 (0.0295), val_loss 0.0449 (0.0331)
+Epoch 32, Current LR: 0.0002942392506752889
+the pred acc is: 26.55
+epoch [32/50], train_loss 0.0276 (0.0292), val_loss 0.0390 (0.0331)
+Epoch 33, Current LR: 0.00026653193131965077
+the pred acc is: 26.48
+epoch [33/50], train_loss 0.0295 (0.0289), val_loss 0.0431 (0.0332)
+Epoch 34, Current LR: 0.00023976573648539642
+the pred acc is: 27.06
+epoch [34/50], train_loss 0.0284 (0.0285), val_loss 0.0382 (0.0332)
+Epoch 35, Current LR: 0.00021404630011522574
+the pred acc is: 26.98
+epoch [35/50], train_loss 0.0303 (0.0283), val_loss 0.0327 (0.0334)
+Epoch 36, Current LR: 0.00018947512507439847
+the pred acc is: 26.87
+epoch [36/50], train_loss 0.0267 (0.0279), val_loss 0.0462 (0.0333)
+Epoch 37, Current LR: 0.000166149182565299
+the pred acc is: 26.76
+epoch [37/50], train_loss 0.0267 (0.0276), val_loss 0.0355 (0.0335)
+Epoch 38, Current LR: 0.00014416052942640132
+the pred acc is: 26.92
+epoch [38/50], train_loss 0.0271 (0.0273), val_loss 0.0342 (0.0335)
+Epoch 39, Current LR: 0.00012359594482598432
+the pred acc is: 26.49
+epoch [39/50], train_loss 0.0275 (0.0269), val_loss 0.0362 (0.0335)
+Epoch 40, Current LR: 0.00010453658778440102
+the pred acc is: 26.64
+epoch [40/50], train_loss 0.0286 (0.0267), val_loss 0.0343 (0.0336)
+Epoch 41, Current LR: 8.70576768765026e-05
+the pred acc is: 26.31
+epoch [41/50], train_loss 0.0266 (0.0264), val_loss 0.0342 (0.0335)
+Epoch 42, Current LR: 7.12281933782875e-05
+the pred acc is: 26.45
+epoch [42/50], train_loss 0.0297 (0.0261), val_loss 0.0372 (0.0336)
+Epoch 43, Current LR: 5.71106090293204e-05
+the pred acc is: 26.66
+epoch [43/50], train_loss 0.0264 (0.0259), val_loss 0.0452 (0.0337)
+Epoch 44, Current LR: 4.4760639485315563e-05
+the pred acc is: 26.72
+epoch [44/50], train_loss 0.0234 (0.0256), val_loss 0.0421 (0.0338)
+Epoch 45, Current LR: 3.422702443389899e-05
+the pred acc is: 26.67
+epoch [45/50], train_loss 0.0271 (0.0254), val_loss 0.0327 (0.0340)
+Epoch 46, Current LR: 2.5551335241327665e-05
+the pred acc is: 26.76
+epoch [46/50], train_loss 0.0272 (0.0253), val_loss 0.0358 (0.0340)
+Epoch 47, Current LR: 1.876781088929908e-05
+the pred acc is: 26.48
+epoch [47/50], train_loss 0.0264 (0.0251), val_loss 0.0337 (0.0340)
+Epoch 48, Current LR: 1.3903222849333505e-05
+the pred acc is: 26.54
+epoch [48/50], train_loss 0.0257 (0.0250), val_loss 0.0454 (0.0340)
+Epoch 49, Current LR: 1.0976769428005579e-05
+the pred acc is: 26.98
+epoch [49/50], train_loss 0.0251 (0.0249), val_loss 0.0382 (0.0341)
+Epoch 50, Current LR: 1e-05
+No valid Checkpoint Found!
+new_saves/cifar10/None_infocons_sgm_lg1_thre0.125/pretrain_False_lambd_0_noise_0.01_epoch_240_bottleneck_noRELU_C8S1_log_1_ATstrength_0.3_lr_0.05_varthres_0.125/checkpoint_f_best.tar
+the pred acc is: 26.648848684210527
+epoch [50/50], train_loss 0.0242 (0.0249), val_loss 0.0354 (0.0341)
+Best Validation Loss is 0.026584234088659286
+MSE Loss on ALL Image is 0.0341 (Real Attack Results on the Target Client)
+SSIM Loss on ALL Image is 0.4827 (Real Attack Results on the Target Client)
+PSNR Loss on ALL Image is 14.6812 (Real Attack Results on the Target Client)
+run the attack for inference time
+1.0 torch.Size([1, 8, 8, 8])
+Epoch 1, Current LR: 0.0009990232305719944
+the pred acc is: 15.699999786376953
+epoch [1/50], train_loss 0.0500 (0.0550), val_loss 0.0448 (0.0438)
+Epoch 2, Current LR: 0.0009960967771506664
+the pred acc is: 16.299999893188478
+epoch [2/50], train_loss 0.0383 (0.0419), val_loss 0.0402 (0.0404)
+Epoch 3, Current LR: 0.0009912321891107007
+the pred acc is: 19.899999786376952
+epoch [3/50], train_loss 0.0381 (0.0388), val_loss 0.0381 (0.0381)
+Epoch 4, Current LR: 0.0009844486647586721
+the pred acc is: 23.899999801635744
+epoch [4/50], train_loss 0.0408 (0.0368), val_loss 0.0368 (0.0377)
+Epoch 5, Current LR: 0.0009757729755661009
+the pred acc is: 21.09999984741211
+epoch [5/50], train_loss 0.0351 (0.0358), val_loss 0.0365 (0.0371)
+Epoch 6, Current LR: 0.0009652393605146842
+the pred acc is: 22.300000122070312
+epoch [6/50], train_loss 0.0310 (0.0348), val_loss 0.0381 (0.0369)
+Epoch 7, Current LR: 0.0009528893909706795
+the pred acc is: 23.399999816894532
+epoch [7/50], train_loss 0.0325 (0.0344), val_loss 0.0364 (0.0366)
+Epoch 8, Current LR: 0.0009387718066217122
+the pred acc is: 23.399999923706055
+epoch [8/50], train_loss 0.0336 (0.0335), val_loss 0.0371 (0.0365)
+Epoch 9, Current LR: 0.0009229423231234972
+the pred acc is: 25.300000106811524
+epoch [9/50], train_loss 0.0328 (0.0334), val_loss 0.0359 (0.0367)
+Epoch 10, Current LR: 0.0009054634122155987
+the pred acc is: 24.500000076293944
+epoch [10/50], train_loss 0.0326 (0.0328), val_loss 0.0391 (0.0368)
+Epoch 11, Current LR: 0.0008864040551740153
+the pred acc is: 26.700000091552734
+epoch [11/50], train_loss 0.0326 (0.0321), val_loss 0.0364 (0.0365)
+Epoch 12, Current LR: 0.0008658394705735984
+the pred acc is: 24.3
+epoch [12/50], train_loss 0.0348 (0.0321), val_loss 0.0371 (0.0364)
+Epoch 13, Current LR: 0.0008438508174347006
+the pred acc is: 24.999999725341798
+epoch [13/50], train_loss 0.0343 (0.0315), val_loss 0.0361 (0.0372)
+Epoch 14, Current LR: 0.000820524874925601
+the pred acc is: 25.100000091552733
+epoch [14/50], train_loss 0.0329 (0.0308), val_loss 0.0369 (0.0374)
+Epoch 15, Current LR: 0.000795953699884774
+the pred acc is: 26.29999981689453
+epoch [15/50], train_loss 0.0298 (0.0304), val_loss 0.0353 (0.0365)
+Epoch 16, Current LR: 0.000770234263514603
+the pred acc is: 24.900000091552734
+epoch [16/50], train_loss 0.0293 (0.0297), val_loss 0.0356 (0.0371)
+Epoch 17, Current LR: 0.0007434680686803488
+the pred acc is: 25.299999801635742
+epoch [17/50], train_loss 0.0329 (0.0294), val_loss 0.0367 (0.0374)
+Epoch 18, Current LR: 0.0007157607493247108
+the pred acc is: 25.39999983215332
+epoch [18/50], train_loss 0.0304 (0.0290), val_loss 0.0370 (0.0366)
+Epoch 19, Current LR: 0.0006872216535789154
+the pred acc is: 24.499999740600586
+epoch [19/50], train_loss 0.0267 (0.0284), val_loss 0.0383 (0.0375)
+Epoch 20, Current LR: 0.0006579634122155987
+the pred acc is: 24.5
+epoch [20/50], train_loss 0.0292 (0.0280), val_loss 0.0372 (0.0374)
+Epoch 21, Current LR: 0.0006281014941466028
+the pred acc is: 24.9
+epoch [21/50], train_loss 0.0309 (0.0275), val_loss 0.0370 (0.0368)
+Epoch 22, Current LR: 0.0005977537507199335
+the pred acc is: 27.099999923706054
+epoch [22/50], train_loss 0.0320 (0.0275), val_loss 0.0378 (0.0376)
+Epoch 23, Current LR: 0.0005670399506143305
+the pred acc is: 25.999999908447265
+epoch [23/50], train_loss 0.0307 (0.0272), val_loss 0.0372 (0.0376)
+Epoch 24, Current LR: 0.0005360813071670099
+the pred acc is: 26.500000015258788
+epoch [24/50], train_loss 0.0271 (0.0262), val_loss 0.0377 (0.0374)
+Epoch 25, Current LR: 0.0005049999999999998
+the pred acc is: 25.100000061035157
+epoch [25/50], train_loss 0.0271 (0.0261), val_loss 0.0375 (0.0377)
+Epoch 26, Current LR: 0.0004739186928329897
+the pred acc is: 25.799999740600587
+epoch [26/50], train_loss 0.0270 (0.0257), val_loss 0.0371 (0.0374)
+Epoch 27, Current LR: 0.0004429600493856692
+the pred acc is: 28.099999755859375
+epoch [27/50], train_loss 0.0283 (0.0254), val_loss 0.0389 (0.0378)
+Epoch 28, Current LR: 0.0004122462492800661
+the pred acc is: 25.899999725341797
+epoch [28/50], train_loss 0.0220 (0.0248), val_loss 0.0390 (0.0379)
+Epoch 29, Current LR: 0.0003818985058533967
+the pred acc is: 26.19999998474121
+epoch [29/50], train_loss 0.0242 (0.0241), val_loss 0.0375 (0.0381)
+Epoch 30, Current LR: 0.00035203658778440103
+the pred acc is: 26.299999740600587
+epoch [30/50], train_loss 0.0238 (0.0237), val_loss 0.0386 (0.0381)
+Epoch 31, Current LR: 0.00032277834642108444
+the pred acc is: 25.099999923706054
+epoch [31/50], train_loss 0.0267 (0.0234), val_loss 0.0390 (0.0385)
+Epoch 32, Current LR: 0.0002942392506752889
+the pred acc is: 24.09999983215332
+epoch [32/50], train_loss 0.0232 (0.0231), val_loss 0.0379 (0.0383)
+Epoch 33, Current LR: 0.00026653193131965077
+the pred acc is: 26.49999987792969
+epoch [33/50], train_loss 0.0228 (0.0227), val_loss 0.0394 (0.0383)
+Epoch 34, Current LR: 0.00023976573648539642
+the pred acc is: 25.500000015258788
+epoch [34/50], train_loss 0.0219 (0.0223), val_loss 0.0373 (0.0380)
+Epoch 35, Current LR: 0.00021404630011522574
+the pred acc is: 25.99999981689453
+epoch [35/50], train_loss 0.0230 (0.0219), val_loss 0.0386 (0.0392)
+Epoch 36, Current LR: 0.00018947512507439847
+the pred acc is: 26.299999755859375
+epoch [36/50], train_loss 0.0223 (0.0215), val_loss 0.0380 (0.0388)
+Epoch 37, Current LR: 0.000166149182565299
+the pred acc is: 24.99999980163574
+epoch [37/50], train_loss 0.0214 (0.0211), val_loss 0.0388 (0.0386)
+Epoch 38, Current LR: 0.00014416052942640132
+the pred acc is: 26.09999983215332
+epoch [38/50], train_loss 0.0236 (0.0207), val_loss 0.0386 (0.0396)
+Epoch 39, Current LR: 0.00012359594482598432
+the pred acc is: 26.700000076293946
+epoch [39/50], train_loss 0.0245 (0.0205), val_loss 0.0391 (0.0394)
+Epoch 40, Current LR: 0.00010453658778440102
+the pred acc is: 27.59999998474121
+epoch [40/50], train_loss 0.0218 (0.0201), val_loss 0.0390 (0.0397)
+Epoch 41, Current LR: 8.70576768765026e-05
+the pred acc is: 25.799999984741213
+epoch [41/50], train_loss 0.0187 (0.0198), val_loss 0.0404 (0.0396)
+Epoch 42, Current LR: 7.12281933782875e-05
+the pred acc is: 27.49999996948242
+epoch [42/50], train_loss 0.0215 (0.0195), val_loss 0.0398 (0.0394)
+Epoch 43, Current LR: 5.71106090293204e-05
+the pred acc is: 26.599999954223634
+epoch [43/50], train_loss 0.0225 (0.0192), val_loss 0.0400 (0.0406)
+Epoch 44, Current LR: 4.4760639485315563e-05
+the pred acc is: 25.700000091552734
+epoch [44/50], train_loss 0.0212 (0.0190), val_loss 0.0389 (0.0401)
+Epoch 45, Current LR: 3.422702443389899e-05
+the pred acc is: 26.600000122070313
+epoch [45/50], train_loss 0.0179 (0.0187), val_loss 0.0401 (0.0397)
+Epoch 46, Current LR: 2.5551335241327665e-05
+the pred acc is: 26.99999996948242
+epoch [46/50], train_loss 0.0209 (0.0185), val_loss 0.0379 (0.0399)
+Epoch 47, Current LR: 1.876781088929908e-05
+the pred acc is: 25.69999980163574
+epoch [47/50], train_loss 0.0190 (0.0183), val_loss 0.0388 (0.0403)
+Epoch 48, Current LR: 1.3903222849333505e-05
+the pred acc is: 26.80000004577637
+epoch [48/50], train_loss 0.0211 (0.0181), val_loss 0.0405 (0.0403)
+Epoch 49, Current LR: 1.0976769428005579e-05
+the pred acc is: 26.800000091552736
+epoch [49/50], train_loss 0.0180 (0.0181), val_loss 0.0416 (0.0403)
+Epoch 50, Current LR: 1e-05
+No valid Checkpoint Found!
+new_saves/cifar10/None_infocons_sgm_lg1_thre0.125/pretrain_False_lambd_0_noise_0.01_epoch_240_bottleneck_noRELU_C8S1_log_1_ATstrength_0.3_lr_0.05_varthres_0.125/checkpoint_f_best.tar
+the pred acc is: 26.01303162317553
+epoch [50/50], train_loss 0.0214 (0.0180), val_loss 0.0404 (0.0403)
+Best Validation Loss is 0.03504858538508415
+MSE Loss on ALL Image is 0.0393 (Real Attack Results on the Target Client)
+SSIM Loss on ALL Image is 0.4593 (Real Attack Results on the Target Client)
+PSNR Loss on ALL Image is 14.0560 (Real Attack Results on the Target Client)
+== res_normN8C64 Training-based MIA performance Score with optimizer Adam, lr 0.001, loss type MSE on best epoch saved model ==
+Reverse Intermediate activation at layer -1 (-1 is the smashed-data)
+The tested model is: best
+MIA performance Score training time is (MSE, SSIM, PSNR) averaging 1 times
+0.03405019846856594, 0.48269424905776975, 14.681204078674316
+MIA performance Score inference time is (MSE, SSIM, PSNR): 0.03931, 0.45934, 14.06
+
