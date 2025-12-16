@@ -1,17 +1,21 @@
 ﻿#!/bin/bash
 # Derived from root run_exp.sh with tuned slot+cross attention parameters (lambda=24 etc.).
-# Console output is mirrored to a timestamped log file in the same directory.
+# Console output is mirrored to a timestamped txt log under repo-root/log.
 
-script_dir="$(cd "$(dirname \"$0\")" && pwd)"
-script_name="$(basename \"$0\" .sh)"
-timestamp="$(date +\"%Y%m%d_%H%M%S\")"
-log_file="${script_dir}/${script_name}_${timestamp}.log"
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$script_dir"
+log_dir="${repo_root}/log"
+mkdir -p "$log_dir"
+timestamp="$(date +"%Y%m%d_%H%M%S")"
+log_file="${log_dir}/${timestamp}_slot.txt"
 
+export PYTHONUNBUFFERED=1
 exec > >(tee -a "$log_file") 2>&1
+echo "Logging to: $log_file"
 
 GPU_id=0
 arch=vgg11_bn_sgm
-batch_size=128
+batch_size=256
 random_seed=125
 cutlayer_list="4"
 num_client=1
@@ -22,7 +26,7 @@ ssim_threshold=0.5
 train_gan_AE_type=res_normN4C64
 gan_loss_type=SSIM
 
-dataset_list="cifar10"
+dataset_list="facescrub"
 scheme=V2_epoch
 random_seed_list="125"
 
@@ -32,9 +36,9 @@ learning_rate=0.05
 local_lr=-1
 num_epochs=240
 regularization_strength_list="0.025"
-lambd_list="24"
+lambd_list="16 24"
 log_entropy=1
-folder_name="saves/cifar10/${AT_regularization}_slotatt_opt_lg${log_entropy}_thre${var_threshold}"
+folder_name="saves/facescrub/${AT_regularization}_slotatt_opt_lg${log_entropy}_thre${var_threshold}"
 bottleneck_option_list="noRELU_C8S1"
 pretrain="False"
 

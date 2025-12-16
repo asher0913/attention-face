@@ -40,10 +40,12 @@ class SlotAttention(nn.Module):
         self.feature_dim = feature_dim
         self.eps = eps
         self.slot_dim = feature_dim if slot_dim is None else slot_dim
+
+        # [FaceScrub Optimization] Use Orthogonal Init to prevent collapse
         self.slot_mu = nn.Parameter(torch.empty(1, 1, self.slot_dim))
-        self.slot_log_sigma = nn.Parameter(torch.empty(1, 1, self.slot_dim))
-        nn.init.xavier_uniform_(self.slot_mu)
-        nn.init.xavier_uniform_(self.slot_log_sigma)
+        nn.init.orthogonal_(self.slot_mu)
+        self.slot_log_sigma = nn.Parameter(torch.zeros(1, 1, self.slot_dim) - 3.0)
+
         self.to_q = nn.Linear(self.slot_dim, self.slot_dim, bias=False)
         self.to_k = nn.Linear(feature_dim, self.slot_dim, bias=False)
         self.to_v = nn.Linear(feature_dim, self.slot_dim, bias=False)
@@ -66,25 +68,21 @@ class SlotAttention(nn.Module):
         mu = self.slot_mu.expand(B, self.num_slots, -1)
         sigma = self.slot_log_sigma.exp().expand(B, self.num_slots, -1)
         slots = mu + sigma * torch.randn_like(mu)
+
         for _ in range(self.num_iterations):
             slots_prev = slots
             slots_norm = self.norm_slots(slots)
-            q = self.to_q(slots_norm) * self.scale  # [B,S,D]
+            q = self.to_q(slots_norm) * self.scale
             attn_logits = torch.einsum('bnd,bsd->bns', k, q)
-            # Improve numerical stability with temperature scaling
-            attn_logits = attn_logits / (self.slot_dim ** 0.25)  # Additional temperature scaling
-            attn = torch.softmax(attn_logits, dim=-1)
-            attn = attn + self.eps
-            attn_sum = attn.sum(dim=1, keepdim=True)
-            attn = attn / torch.clamp(attn_sum, min=self.eps)  # Prevent division by zero
+            attn = torch.softmax(attn_logits, dim=-1) + self.eps
+            attn = attn / attn.sum(dim=-1, keepdim=True)
+            attn_sum = attn.sum(dim=1) + self.eps  # [B, S]
             updates = torch.einsum('bns,bnd->bsd', attn, v)
-            slots = self.gru(
-                updates.reshape(-1, self.slot_dim),
-                slots_prev.reshape(-1, self.slot_dim)
-            )
+            updates = updates / attn_sum.unsqueeze(-1)
+            slots = self.gru(updates.reshape(-1, self.slot_dim), slots_prev.reshape(-1, self.slot_dim))
             slots = slots.reshape(B, self.num_slots, self.slot_dim)
             slots = slots + self.mlp(self.norm_mlp(slots))
-        return slots  # [B,S,D]
+        return slots
 
 class CrossAttention(nn.Module):
     def __init__(self, feature_dim, num_heads=4, mlp_mult: int = 4):
@@ -131,181 +129,42 @@ class CrossAttention(nn.Module):
         return y
 
 class SlotCrossAttentionCEM(nn.Module):
-    def __init__(self, feature_dim=128, num_slots=12, num_heads=4, num_iterations=3,
+    def __init__(self, feature_dim=128, num_slots=8, num_heads=4, num_iterations=3,
                  eps_var=1e-4, var_threshold=0.1, reg_strength=0.0):
         super().__init__()
         self.slot_attention = SlotAttention(feature_dim, num_slots, num_iterations)
-        self.cross_attention = CrossAttention(feature_dim, num_heads=num_heads)
         self.feature_dim = feature_dim
         self.eps_var = eps_var
         self.var_threshold = var_threshold
         self.reg_strength = reg_strength
 
-        # Gated Attention (per-dimension): sigmoid(MLP(LN(logvar))) in the spirit of Gated Attention MIL (Ilse et al., ICML'18)
-        gate_hidden = max(32, feature_dim // 8)
-        self.var_ln = nn.LayerNorm(feature_dim)
-        self.gate_mlp = nn.Sequential(
-            nn.Linear(feature_dim, gate_hidden),
-            nn.GELU(),
-            nn.Linear(gate_hidden, feature_dim),
-            nn.Sigmoid(),
-        )
-        # Class-level gate: scales CEM per class based on relative sample count (learnable)
-        self.class_gate_a = nn.Parameter(torch.tensor(12.0))   # sharpness
-        self.class_gate_b = nn.Parameter(torch.tensor(0.04))   # midpoint for M/B
+        # [FaceScrub Optimization] Running Stats for Stability
+        self.register_buffer('running_mu', torch.zeros(1, num_slots, feature_dim))
+        self.register_buffer('running_var', torch.ones(1, num_slots, feature_dim))
+        self.momentum = 0.99
 
-        # Slot assignment temperature and slot mass sharpening (Mixture-of-Slots)
-        self.assign_temp = nn.Parameter(torch.tensor(12.0))  # β for soft assignment
-        self.slot_power = nn.Parameter(torch.tensor(2.5))    # sharpen slot mass weights
-
-        # Softplus margin parameters (stabilize surrogate around threshold)
-        self.softplus_beta = nn.Parameter(torch.tensor(1.5))
-        self.margin_m = nn.Parameter(torch.tensor(0.05))
-
-        # SNR hard-ish gate threshold and sharpness (per-dim)
-        self.snr_thresh = nn.Parameter(torch.tensor(0.25))
-        self.snr_sharp = nn.Parameter(torch.tensor(14.0))
-        # Debug counter for lightweight logging
-        self.debug_counter = 0
-        self.call_count = 0
-        # Early shutoff knobs (only within attention surrogate)
-        self.early_shut_steps = 100
-        self.early_hard_thresh = 0.5
-        self.early_gate_thresh = 0.6
-        self.print_every = 200
-        # Debug counter for lightweight logging
-        self.debug_counter = 0
+        self.head_mu = nn.Linear(feature_dim, feature_dim)
+        self.head_logvar = nn.Sequential(nn.Linear(feature_dim, feature_dim), nn.Softplus())
 
     def forward(self, features, labels, unique_labels):
-        device, dtype = features.device, features.dtype
-        total_logvar = torch.zeros((), device=device, dtype=dtype)
-        total_mse = torch.zeros((), device=device, dtype=dtype)
-        total_weight = torch.zeros((), device=device, dtype=dtype)
-        B_total = features.size(0)
-        eps = 1e-8
-        gamma = 1e-6  # Smaller gamma for better numerical stability
+        if features.dim() == 2:
+            features = features.unsqueeze(1)
+        slots = self.slot_attention(features)
 
-        # Threshold uses var_threshold scaled by reg_strength^2 (original design)
-        logvar_thr = torch.tensor(max(self.var_threshold * (self.reg_strength ** 2), 1e-8) + gamma,
-                                  device=device, dtype=dtype)
+        mu_s = self.head_mu(slots)
+        var_s = self.head_logvar(slots) + self.eps_var
 
-        # Bump call counter and init debug accumulators
-        self.call_count += 1
-        dbg_gate_sum = 0.0
-        dbg_hard_sum = 0.0
-        dbg_base_sum = 0.0
-        dbg_cls_count = 0
+        if self.training:
+            with torch.no_grad():
+                self.running_mu = self.momentum * self.running_mu + (1 - self.momentum) * mu_s.mean(0, keepdim=True)
+                self.running_var = self.momentum * self.running_var + (1 - self.momentum) * var_s.mean(0, keepdim=True)
 
-        for cls in unique_labels:
-            mask = (labels == cls)
-            class_feats = features[mask]
-            M = class_feats.size(0)
-            if M <= 2:
-                continue
+        # Simplified Entropy Maximization
+        threshold = self.var_threshold * (self.reg_strength ** 2) + 1e-6
+        threshold_t = features.new_tensor(threshold)
+        rob_loss = F.relu(torch.log(threshold_t) - torch.log(var_s)).mean()
 
-            # Normalize features to improve numerical stability
-            class_feats_norm = F.layer_norm(class_feats, class_feats.shape[1:])  # [M,D]
-
-            # Slots and enhanced features
-            tokens = class_feats_norm.unsqueeze(0)  # [1,M,D]
-            slots = self.slot_attention(tokens).squeeze(0)  # [S,D]
-            enhanced = self.cross_attention(class_feats_norm, slots)  # [M,D]
-
-            # Basic class statistics for logging (unchanged)
-            mean_c = enhanced.mean(dim=0)
-            mse_c = F.mse_loss(enhanced, mean_c.expand_as(enhanced))
-
-            # -------- Mixture-of-Slots variance (slot-internal) --------
-            # Soft assignment r(m,s)
-            sims = F.normalize(class_feats_norm, dim=-1) @ F.normalize(slots, dim=-1).t()  # [M,S]
-            r = F.softmax(self.assign_temp * sims, dim=1)  # [M,S]
-            slot_mass = r.sum(dim=0) + eps  # [S]
-
-            # Slot means mu_s: [S,D]
-            mu_s = (r.t() @ enhanced) / slot_mass.unsqueeze(1)
-
-            # Slot variances var_s: [S,D]
-            diff = enhanced.unsqueeze(1) - mu_s.unsqueeze(0)  # [M,S,D]
-            var_num = (r.unsqueeze(2) * (diff ** 2)).sum(dim=0)  # [S,D]
-            var_s = var_num / slot_mass.unsqueeze(1)
-            var_s = torch.clamp(var_s, min=self.eps_var)
-            logvar_s = torch.log(var_s + gamma)  # [S,D]
-
-            # -------- Per-dimension gates (soft + SNR-based hard-ish) --------
-            # Soft per-dimension gates per slot
-            gate_d = self.gate_mlp(self.var_ln(logvar_s))  # [S,D]
-            # SNR per slot-dim and smooth hard gate
-            snr = var_s / (mu_s ** 2 + eps)  # [S,D]
-            hard_gate = torch.sigmoid(self.snr_sharp * (snr - self.snr_thresh))  # ~{0,1}
-
-            # Softplus margin instead of ReLU
-            log_threshold = torch.log(logvar_thr)
-            soft_arg = self.softplus_beta * (logvar_s - log_threshold - self.margin_m)
-            base_ce = F.softplus(soft_arg) / (self.softplus_beta + eps)  # [S,D]
-
-            gated_ce = hard_gate * gate_d * base_ce  # [S,D]
-
-            # ---- debug accumulate per-class gate stats ----
-            dbg_gate_sum += float(gate_d.mean().detach().cpu())
-            dbg_hard_sum += float(hard_gate.mean().detach().cpu())
-            dbg_cls_count += 1
-            dbg_base_sum += float(base_ce.mean().detach().cpu())
-
-            # -------- Slot mass gating (sharpened) --------
-            weights = (slot_mass / float(M))  # [S]
-            weights = weights ** self.slot_power
-            weights = weights / (weights.sum() + eps)  # normalize
-            # Aggregate across slots, then across dims
-            ce_dim = (weights.unsqueeze(1) * gated_ce).sum(dim=0)  # [D]
-            logvar_c = ce_dim.mean()  # scalar
-
-            # -------- Class-level gate based on relative sample count --------
-            mb = torch.tensor(float(M) / float(B_total), device=device, dtype=dtype)
-            gate_c = torch.sigmoid(self.class_gate_a * (mb - self.class_gate_b))
-            logvar_c = logvar_c * gate_c
-
-            if torch.isnan(logvar_c) or torch.isinf(logvar_c):
-                print(f"Warning: NaN/Inf detected in class {cls.item()}, skipping...")
-                continue
-
-            w = torch.tensor(float(M) / float(B_total), device=device, dtype=dtype)
-            total_mse += mse_c * w
-            total_logvar += logvar_c * w
-            total_weight += w
-            
-        if total_weight > 0:
-            rob_loss = total_logvar / total_weight
-            intra_mse = total_mse / total_weight
-        else:
-            rob_loss = torch.zeros((), device=device, dtype=dtype)
-            intra_mse = torch.zeros((), device=device, dtype=dtype)
-            
-        # Aggregate debug stats
-        avg_gate = dbg_gate_sum / max(1, dbg_cls_count)
-        avg_hard = dbg_hard_sum / max(1, dbg_cls_count)
-        avg_base = dbg_base_sum / max(1, dbg_cls_count)
-
-        # Early shutoff: if early steps or gates indicate broad activation, suppress CEM this call
-        early_shut = (self.call_count <= self.early_shut_steps) or (avg_hard > float(self.early_hard_thresh)) or (avg_gate > float(self.early_gate_thresh))
-        if early_shut:
-            # Return a zero rob_loss that is still connected to the graph so downstream
-            # code that expects rob_loss.requires_grad can run without UnboundLocalError.
-            # This keeps encoder_gradients path alive but with zero gradients.
-            rob_loss = (features.sum() * 0.0).sum()
-            # Optional: also zero intra_mse contribution to avoid misleading logs (keep as-is)
-            if self.debug_counter < 5 or (self.call_count % self.print_every == 0):
-                print(f"[CEM-GATE][SHUTOFF step={self.call_count}] classes={dbg_cls_count} gate_d={avg_gate:.3f} hard_gate={avg_hard:.3f} base={avg_base:.3f}")
-                self.debug_counter += 1
-        else:
-            if self.debug_counter < 5 or (self.call_count % self.print_every == 0):
-                try:
-                    rob_val = float(rob_loss.detach().cpu())
-                except Exception:
-                    rob_val = 0.0
-                print(f"[CEM-GATE][OK step={self.call_count}] classes={dbg_cls_count} gate_d={avg_gate:.3f} hard_gate={avg_hard:.3f} base={avg_base:.3f} rob_loss={rob_val:.4f}")
-                self.debug_counter += 1
-
-        return rob_loss, intra_mse
+        return rob_loss, features.new_tensor(0.0)
 def init_weights(m): # weight initialization
     if type(m) == nn.Linear:
         torch.nn.init.xavier_uniform_(m.weight, gain=1.0)
@@ -1238,7 +1097,53 @@ class MIA_train: # main class for every thing
 
 
     '''Main training function, the communication between client/server is implicit to keep a fast training speed'''
-    def train_target_step(self, x_private, label_private, adding_noise,random_ini_centers,centroids_list,weights_list,cluster_variances_list,client_id=0):
+    def train_target_step(self, x_private, label_private, adding_noise, random_ini_centers, centroids_list, weights_list, cluster_variances_list, client_id=0):
+        self.optimizer_zero_grad()
+        self.f.train(); self.f_tail.train(); self.classifier.train()
+        
+        if self.load_from_checkpoint and self.finetune_freeze_bn:
+            freeze_model_bn(self.f)
+
+        x_private, label_private = x_private.cuda(), label_private.cuda()
+        z_private = self.f(x_private)
+        
+        use_attention = (self.use_attention_cem and not random_ini_centers and self.lambd > 0)
+        rob_loss = torch.zeros((), device=x_private.device)
+        
+        if use_attention:
+            # Flatten spatial dims for FaceScrub [B, D, H, W] -> [B, N, D]
+            if z_private.dim() == 4:
+                feats_flat = z_private.permute(0, 2, 3, 1).flatten(1, 2)
+            else:
+                feats_flat = z_private
+                
+            if self.attention_cem is None:
+                self.attention_cem = SlotCrossAttentionCEM(feature_dim=feats_flat.size(-1), num_slots=8).to(x_private.device)
+                self.optimizer.add_param_group({'params': self.attention_cem.parameters()})
+            
+            rob_loss, _ = self.attention_cem(feats_flat, label_private, None)
+
+        # Forward Cloud
+        output = self.f_tail(z_private)
+        if output.dim() == 4:
+            output = F.adaptive_avg_pool2d(output, 1)
+        output = output.view(output.size(0), -1)
+        output = self.classifier(output)
+        
+        f_loss = torch.nn.CrossEntropyLoss()(output, label_private)
+        
+        # Auto-grad combination (Warmup check: 20 epochs)
+        total_loss = f_loss
+        if use_attention and self.current_epoch > 20:
+            total_loss += self.lambd * rob_loss
+            
+        total_loss.backward()
+        
+        return total_loss.detach().cpu().numpy(), f_loss.detach().cpu().numpy(), z_private
+
+        # ---------------------------------------------------------------------
+        # Legacy implementation (kept for reference; unreachable due to return).
+        # ---------------------------------------------------------------------
         # 每个 step 必须先清梯度，避免跨 step 累积导致学习无效
         self.optimizer_zero_grad()
         self.f_tail.train()
