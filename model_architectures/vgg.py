@@ -129,19 +129,28 @@ class VGG(nn.Module):
     def get_current_client(self):
         return self.current_client
 
-    def get_smashed_data_size(self):
+def get_smashed_data_size(self):
         with torch.no_grad():
-
             try:
-                if  self.feature_size==8:
+                # ---------------------------------------------------
+                # 核心修改：增加对 feature_size=16 (即64x64图片) 的支持
+                # ---------------------------------------------------
+                if self.feature_size == 16:
+                    # FaceScrub 是 64x64
+                    noise_input = torch.randn([1, 3, 64, 64])
+                elif self.feature_size == 8:
+                    # CIFAR 是 32x32
                     noise_input = torch.randn([1, 3, 32, 32])
                 else:
+                    # 其他情况 (比如 feature_size=12 对应 48x48)
                     noise_input = torch.randn([1, 3, 48, 48])
+                
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
             except:
-                noise_input = torch.randn([1, 3, 48, 48])
+                # 保底：如果上面挂了，强行试一下 64x64 (适配你的 FaceScrub)
+                noise_input = torch.randn([1, 3, 64, 64])
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
