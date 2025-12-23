@@ -129,27 +129,24 @@ class VGG(nn.Module):
     def get_current_client(self):
         return self.current_client
 
-def get_smashed_data_size(self):
+    def get_smashed_data_size(self):
         with torch.no_grad():
             try:
                 # ---------------------------------------------------
-                # 核心修改：增加对 feature_size=16 (即64x64图片) 的支持
+                # 修复逻辑：适配 64x64 的 feature_size=16
                 # ---------------------------------------------------
                 if self.feature_size == 16:
-                    # FaceScrub 是 64x64
                     noise_input = torch.randn([1, 3, 64, 64])
                 elif self.feature_size == 8:
-                    # CIFAR 是 32x32
                     noise_input = torch.randn([1, 3, 32, 32])
                 else:
-                    # 其他情况 (比如 feature_size=12 对应 48x48)
                     noise_input = torch.randn([1, 3, 48, 48])
                 
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
             except:
-                # 保底：如果上面挂了，强行试一下 64x64 (适配你的 FaceScrub)
+                # 保底：强制使用 64x64
                 noise_input = torch.randn([1, 3, 64, 64])
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
@@ -160,7 +157,9 @@ def get_smashed_data_size(self):
 
     def get_MAC_param(self): ## calculate the flops
         with torch.no_grad():
-            if  self.feature_size==8:
+            if self.feature_size == 16:
+                noise_input = torch.randn([1, 3, 64, 64])
+            elif self.feature_size==8:
                 noise_input = torch.randn([1, 3, 32, 32])
             else:
                 noise_input = torch.randn([1, 3, 48, 48])
@@ -181,7 +180,10 @@ def get_smashed_data_size(self):
     def get_inference_time(self, federated = False):
       import time
       with torch.no_grad():
-          noise_input = torch.randn([128, 3, 32, 32])
+          if self.feature_size == 16:
+              noise_input = torch.randn([128, 3, 64, 64])
+          else:
+              noise_input = torch.randn([128, 3, 32, 32])
           
           if not federated:
             #CPU warm up
@@ -238,7 +240,10 @@ def get_smashed_data_size(self):
 
     def get_train_time(self, federated = False):
         import time
-        noise_input = torch.randn([128, 3, 32, 32])
+        if self.feature_size == 16:
+            noise_input = torch.randn([128, 3, 64, 64])
+        else:
+            noise_input = torch.randn([128, 3, 32, 32])
         noise_label = torch.randint(0, 10, [128, ])
         self.local.cpu()
         self.cloud.cpu()
@@ -596,13 +601,12 @@ def vgg11_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_d
     """VGG 11-layer model (configuration "A") with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
-def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=True,upsize=False,SCA=False,feature_size=16):
+def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False,feature_size=8):
     """VGG 11-layer model (configuration "A") with batch normalization"""
-    # =====================================
+    # 强制覆盖参数以适配 64x64 数据
     feature_size = 16
     upsize = True
-    # =====================================
-
+    
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,sgm=True,double_local_layer=double_local_layer,SCA=SCA,feature_size=feature_size), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different,upsize=upsize,feature_size=feature_size)
 
 def vgg13(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
