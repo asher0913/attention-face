@@ -24,6 +24,20 @@ def init_weights(m):
         if m.bias is not None: 
             m.bias.data.zero_()
 
+# ==========================================
+# 新增：强制调整尺寸层，专门解决输入尺寸不匹配问题
+# ==========================================
+class ResizeLayer(nn.Module):
+    def __init__(self, size=(64, 64)):
+        super(ResizeLayer, self).__init__()
+        self.size = size
+
+    def forward(self, x):
+        # 如果输入不是 64x64，就强制插值放大
+        if x.size(2) != self.size[0] or x.size(3) != self.size[1]:
+            return F.interpolate(x, size=self.size, mode='bilinear', align_corners=False)
+        return x
+
 class LCALayer(nn.Module):
     def __init__(self, input_shape, num_neurons, alpha=0.2, lmbda=0.01, num_iterations=2):
         super(LCALayer, self).__init__()
@@ -32,7 +46,7 @@ class LCALayer(nn.Module):
         self.lmbda = lmbda
         self.num_iterations = num_iterations
 
-        input_dim = input_shape[0] * input_shape[1] * input_shape[2]  # 3 * 32 * 32 = 3072
+        input_dim = input_shape[0] * input_shape[1] * input_shape[2]
         self.W = nn.Parameter(torch.randn(num_neurons, input_dim))
 
         self.W.data = F.normalize(self.W.data, p=2, dim=1)
@@ -54,10 +68,7 @@ class LCALayer(nn.Module):
             u = u + du
             u = self.soft_threshold(u, self.lmbda)
 
-        # 将 sparse code 重构回 input_dim（3072）
-        reconstruction = F.linear(u, self.W.t())  # (batch_size, 3072)
-
-        # 将重构后的输入 reshape 为 (batch_size, 3, 32, 32)
+        reconstruction = F.linear(u, self.W.t())
         reconstruction = reconstruction.view(batch_size, c, h, w)
         return reconstruction
 
@@ -66,17 +77,11 @@ class LCALayer(nn.Module):
 
 
 class VGG(nn.Module):
-    '''
-    VGG model 
-    '''
     def __init__(self, feature, logger, num_client = 1, num_class = 10, initialize_different = False,upsize=False,SCA=False,feature_size=8):
         super(VGG, self).__init__()
         self.current_client = 0
         self.feature_size=feature_size
         self.local_list = []
-        # print('dose upsize?',upsize)
-        # if SCA:
-        #     self.lca_layer = LCALayer(input_shape=(3, 32, 32), num_neurons=1024)
         self.upsize=upsize
         for i in range(num_client):
             if i == 0:
@@ -84,14 +89,9 @@ class VGG(nn.Module):
                 self.local_list[0].apply(init_weights)
             else:
                 new_copy = copy.deepcopy(self.local_list[0])
-
                 self.local_list.append(new_copy.cuda())
                 if initialize_different:
                     self.local_list[i].apply(init_weights)
-                    
-            # for name, params in self.local_list[-1].named_parameters():
-            #     print(name, 'of client', i, params.data[1][1])
-            #     break
         self.local = self.local_list[0]
         self.cloud = feature[1]
         self.logger = logger
@@ -111,9 +111,7 @@ class VGG(nn.Module):
                 nn.ReLU(True)]
         classifier_list += [nn.Linear(512, num_class)]
         self.classifier = nn.Sequential(*classifier_list)
-        # if SCA:
-        #     print("SCA:")
-        #     print(self.lca_layer)         
+        
         print("local:")
         print(self.local)
         print("cloud:")
@@ -132,9 +130,7 @@ class VGG(nn.Module):
     def get_smashed_data_size(self):
         with torch.no_grad():
             try:
-                # ---------------------------------------------------
-                # 修复逻辑：适配 64x64 的 feature_size=16
-                # ---------------------------------------------------
+                # 无论外界如何，只要feature_size是16，就用64x64测试
                 if self.feature_size == 16:
                     noise_input = torch.randn([1, 3, 64, 64])
                 elif self.feature_size == 8:
@@ -146,7 +142,6 @@ class VGG(nn.Module):
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
             except:
-                # 保底：强制使用 64x64
                 noise_input = torch.randn([1, 3, 64, 64])
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
@@ -155,7 +150,7 @@ class VGG(nn.Module):
             
         return smashed_data.size()
 
-    def get_MAC_param(self): ## calculate the flops
+    def get_MAC_param(self):
         with torch.no_grad():
             if self.feature_size == 16:
                 noise_input = torch.randn([1, 3, 64, 64])
@@ -186,11 +181,9 @@ class VGG(nn.Module):
               noise_input = torch.randn([128, 3, 32, 32])
           
           if not federated:
-            #CPU warm up
             self.local.cpu()
             self.local.eval()
-            smashed_data = self.local(noise_input) #CPU warm up
-            
+            smashed_data = self.local(noise_input) 
             start_time = time.time()
             for _ in range(500):
                 smashed_data = self.local(noise_input)
@@ -202,8 +195,7 @@ class VGG(nn.Module):
             self.local.eval()
             self.cloud.eval()
             self.classifier.eval()
-
-            smashed_data = self.local(noise_input) #CPU warm up
+            smashed_data = self.local(noise_input) 
             output = self.cloud(smashed_data)
             output = output.view(output.size(0), -1)
             output = self.classifier(output)
@@ -219,8 +211,7 @@ class VGG(nn.Module):
             self.local.cuda()
             smashed_data = smashed_data.cuda()
             self.cloud.eval()
-            #GPU-WARM-UP
-            for _ in range(100):  #GPU warm up
+            for _ in range(100): 
                 output = self.cloud(smashed_data)
                 output = output.view(output.size(0), -1)
                 output = self.classifier(output)
@@ -254,13 +245,11 @@ class VGG(nn.Module):
         
         criterion = torch.nn.CrossEntropyLoss()
         
-        '''Calculate client backward on CPU'''
-        smashed_data = self.local(noise_input) #CPU warm up
+        smashed_data = self.local(noise_input)
         output = self.cloud(smashed_data)
         output = output.view(output.size(0), -1)
         output = self.classifier(output)
         f_loss = criterion(output, noise_label)
-
         f_loss.backward()
 
         lapse_cpu_all = 0
@@ -272,7 +261,6 @@ class VGG(nn.Module):
             f_loss = criterion(output, noise_label)
             start_time = time.time()
             f_loss.backward()
-            #First time we calculate CPU overall train time.
             lapse_cpu_all += (time.time() - start_time)
         lapse_cpu_all = lapse_cpu_all / 500.
 
@@ -284,18 +272,14 @@ class VGG(nn.Module):
                 output = output.view(output.size(0), -1)
                 output = self.classifier(output)
                 f_loss = criterion(output, noise_label)
-
                 start_time = time.time()
                 f_loss.backward()
-                #First time we calculate CPU server train time by detaching smashed-data.
                 lapse_cpu_server += (time.time() - start_time)
             lapse_cpu_server = lapse_cpu_server / 500.
-
             lapse_cpu_client = lapse_cpu_all - lapse_cpu_server
-        else: # if federated
+        else: 
             lapse_cpu_client = lapse_cpu_all
         
-        '''Calculate Server backward on GPU'''
         self.local.cuda()
         self.cloud.cuda()
         self.classifier.cuda()
@@ -303,8 +287,6 @@ class VGG(nn.Module):
             criterion.cuda()
             noise_input = noise_input.cuda()
             noise_label = noise_label.cuda()
-            
-            #GPU warmup
             for _ in range(100):
                 smashed_data = self.local(noise_input)
                 output = self.cloud(smashed_data.detach())
@@ -312,7 +294,6 @@ class VGG(nn.Module):
                 output = self.classifier(output)
                 f_loss = criterion(output, noise_label)
                 f_loss.backward()
-
             lapse_gpu_server = 0
             for _ in range(500):
                 smashed_data = self.local(noise_input)
@@ -320,10 +301,8 @@ class VGG(nn.Module):
                 output = output.view(output.size(0), -1)
                 output = self.classifier(output)
                 f_loss = criterion(output, noise_label)
-
                 start_time = time.time()
                 f_loss.backward()
-                #First time we calculate CPU server train time by detaching smashed-data.
                 lapse_gpu_server += (time.time() - start_time)
             lapse_gpu_server = lapse_gpu_server / 500.
         else:
@@ -331,10 +310,6 @@ class VGG(nn.Module):
         return lapse_cpu_client, lapse_gpu_server
 
     def forward(self, x):
-        # if SCA:
-        #     sparse_code = self.lca_layer(x)
-        #     reconstruction = F.linear(sparse_code, self.lca_layer.W.t()).view(x.size(0), 3, 32, 32)
-        #     x=reconstruction
         self.local_output = self.local(x)
         x = self.cloud(self.local_output)
         x = x.view(x.size(0), -1)
@@ -343,13 +318,9 @@ class VGG(nn.Module):
 
 
 class VGG_vib(nn.Module):
-    '''
-    VGG model 
-    '''
     def __init__(self, feature, logger, num_client = 1, num_class = 10, initialize_different = False):
         super(VGG_vib, self).__init__()
         self.current_client = 0
-        
         self.local_list = []
         for i in range(num_client):
             if i == 0:
@@ -357,11 +328,9 @@ class VGG_vib(nn.Module):
                 self.local_list[0].apply(init_weights)
             else:
                 new_copy = copy.deepcopy(self.local_list[0])
-
                 self.local_list.append(new_copy.cuda())
                 if initialize_different:
                     self.local_list[i].apply(init_weights)
-                    
             for name, params in self.local_list[-1].named_parameters():
                 print(name, 'of client', i, params.data[1][1])
                 break
@@ -375,14 +344,9 @@ class VGG_vib(nn.Module):
             nn.Linear(512, 512),
             nn.ReLU(True)]
         self.classifier = nn.Sequential(*classifier_list)
-        
         self.feat_dim = np.prod(self.get_smashed_data_size()[1:])
-        # print(self.feat_dim)
-        # vib
-        # self.feat_dim = 512
         self.k = self.feat_dim
         self.st_layer = nn.Linear(self.feat_dim, self.k * 2)
-        # self.fc_layer = nn.Linear(self.k, num_class)
 
     def switch_model(self, client_id):
         self.current_client = client_id
@@ -414,8 +378,7 @@ class VGG_vib(nn.Module):
           noise_input = torch.randn([128, 3, 32, 32])
           self.local.cpu()
           self.local.eval()
-          #CPU warm up
-          smashed_data = self.local(noise_input) #CPU warm up
+          smashed_data = self.local(noise_input)
           start_time = time.time()
           for _ in range(100):
               smashed_data = self.local(noise_input)
@@ -423,8 +386,7 @@ class VGG_vib(nn.Module):
           self.local.cuda()
           smashed_data = smashed_data.cuda()
           self.cloud.eval()
-          #GPU-WARM-UP
-          for _ in range(20):  #GPU warm up
+          for _ in range(20):
               output = self.cloud(smashed_data)
           start_time = time.time()
           for _ in range(100):
@@ -432,36 +394,16 @@ class VGG_vib(nn.Module):
           lapse_gpu = (time.time() - start_time)/100
           del noise_input, output, smashed_data
       return lapse_cpu, lapse_gpu
-    # def forward(self, x):
-    #     self.local_output = self.local(x)
-
-    #     feature = self.cloud(self.local_output)
-    #     feature = self.classifier(feature)
-    #     feature = feature.view(feature.size(0), -1)
-
-    #     statis = self.st_layer(feature)
-    #     mu, std = statis[:, :self.k], statis[:, self.k:]
-
-    #     std = F.softplus(std-5, beta=1)
-    #     eps = torch.FloatTensor(std.size()).normal_().cuda()
-    #     res = mu + std * eps
-
-
-    #     out = self.fc_layer(res)
-    #     return [feature, mu, std, out]
 
     def forward(self, x):
         feature = self.local(x)
         feature_old_size = feature.size()
         feature = feature.view(feature.size(0), -1)
-        # print(feature.size())
         statis = self.st_layer(feature)
         mu, std = statis[:, :self.k], statis[:, self.k:]
-
         std = F.softplus(std-5, beta=1)
         eps = torch.FloatTensor(std.size()).normal_().cuda()
         res = mu + std * eps
-    
         res = res.view(feature_old_size)
         x = self.cloud(res)
         x = x.view(x.size(0), -1)
@@ -470,12 +412,16 @@ class VGG_vib(nn.Module):
 
 def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bottleneck_option = "C8S1",sgm=False,double_local_layer=False,SCA=False,feature_size=8):
     local = []
+    
+    # ==========================================
+    # 核心修改：如果要求feature_size=16(即64x64)，则在开头加一个自动resize层
+    # 这样就算输入数据是32x32，也会被强行变成64x64
+    # ==========================================
+    if feature_size == 16:
+        local += [ResizeLayer((64, 64))]
+    
     cloud = []
     in_channels = 3
-    # if SCA:
-    #     lca_layer = LCALayer(input_shape=(3, 32, 32), num_neurons=2048, alpha=0.05, lmbda=0.1, num_iterations=1)
-    #     local+=[lca_layer]
-    #Modified Local part - Experimental feature
     channel_mul = 1
     for v_idx,v in enumerate(cfg):
         if v_idx < cutting_layer - 1:
@@ -505,7 +451,7 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
                 else:
                     local += [conv2d, nn.ReLU(inplace=True)]
                 in_channels = v
-            if adds_bottleneck: # to enable gooseneck, simply copy below to other architecture
+            if adds_bottleneck:
                 print("original channel size of smashed-data is {}".format(in_channels))
                 try:
                     if "noRELU" in bottleneck_option or "norelu" in bottleneck_option or "noReLU" in bottleneck_option:
@@ -522,12 +468,11 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
                     else:
                         bottleneck_stride = 1
                 except:
-                    print("auto extract bottleneck option fail (format: CxSy, x = [1, max_channel], y = {1, 2}), set channel size to 8 and stride to 1")
+                    print("auto extract bottleneck option fail, set to 8")
                     bn_kernel_size = 3
                     bottleneck_channel_size = 8
                     bottleneck_stride = 1
                     relu_option = True
-                # cleint-side bottleneck
                 if bottleneck_stride == 1:
                     local += [nn.Conv2d(in_channels, bottleneck_channel_size, kernel_size=bn_kernel_size, padding=bn_kernel_size//2, stride= 1)]
                 elif bottleneck_stride >= 2:
@@ -544,10 +489,6 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
                     else:
                         lca_layer = LCALayer(input_shape=(8, feature_size, feature_size), num_neurons=8*feature_size*feature_size, alpha=0.05, lmbda=0.01, num_iterations=1)
                     local+=[lca_layer]
-                            # server-side bottleneck
-                
-                ## constrain the feature output to 0-1
-
 
                 if bottleneck_stride == 1:
                     cloud += [nn.Conv2d(bottleneck_channel_size, in_channels, kernel_size=bn_kernel_size, padding=bn_kernel_size//2, stride= 1)]
@@ -562,12 +503,9 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
                 print("added bottleneck, new channel size of smashed-data is {}".format(bottleneck_channel_size))
             
             if sgm:
-                # local += [nn.BatchNorm2d(bottleneck_channel_size)]
                 local += [nn.Sigmoid()]
-
             else:
                 local += [nn.BatchNorm2d(bottleneck_channel_size)]
-            #     local += [nn.Sigmoid()]
         else:
             if v == 'M':
                 cloud += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -592,67 +530,52 @@ cfg = {
 
 
 def vgg11(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 11-layer model (configuration "A")"""
-    # print('dose upsize?',upsize)
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer,SCA=SCA), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different,upsize=upsize)
 
 
 def vgg11_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 11-layer model (configuration "A") with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False,feature_size=8):
-    """VGG 11-layer model (configuration "A") with batch normalization"""
-    # 强制覆盖参数以适配 64x64 数据
+    # 强制覆盖：不管输入是多少，都按64x64处理
     feature_size = 16
     upsize = True
-    
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,sgm=True,double_local_layer=double_local_layer,SCA=SCA,feature_size=feature_size), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different,upsize=upsize,feature_size=feature_size)
 
 def vgg13(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 13-layer model (configuration "B")"""
     return VGG(make_layers(cutting_layer,cfg['B'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg13_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 13-layer model (configuration "B") with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['B'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 def vgg11_vib(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 11-layer model (configuration "A")"""
     return VGG_vib(make_layers(cutting_layer,cfg['A'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg11_bn_vib(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 11-layer model (configuration "A") with batch normalization"""
     return VGG_vib(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg13_vib(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 13-layer model (configuration "B")"""
     return VGG_vib(make_layers(cutting_layer,cfg['B'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg13_bn_vib(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 13-layer model (configuration "B") with batch normalization"""
     return VGG_vib(make_layers(cutting_layer,cfg['B'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg16(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 16-layer model (configuration "D")"""
     return VGG(make_layers(cutting_layer,cfg['D'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg16_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 16-layer model (configuration "D") with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['D'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg19(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 19-layer model (configuration "E")"""
     return VGG(make_layers(cutting_layer,cfg['E'], batch_norm=False, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
 
 def vgg19_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):
-    """VGG 19-layer model (configuration 'E') with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['E'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
