@@ -587,7 +587,7 @@ def vgg11_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_d
     """VGG 11-layer model (configuration "A") with batch normalization"""
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,double_local_layer=double_local_layer), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different)
 
-def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False,feature_size=8):
+def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=True,SCA=False,feature_size=16):
     """VGG 11-layer model (configuration "A") with batch normalization"""
     # print('the value of SCA is:',SCA)
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,sgm=True,double_local_layer=double_local_layer,SCA=SCA,feature_size=feature_size), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different,upsize=upsize,feature_size=feature_size)
