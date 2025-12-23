@@ -1,6 +1,7 @@
-﻿#!/bin/bash
+#!/bin/bash
 # Derived from root run_exp.sh with tuned slot+cross attention parameters (lambda=24 etc.).
 # Console output is mirrored to a timestamped txt log under repo-root/log.
+set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$script_dir"

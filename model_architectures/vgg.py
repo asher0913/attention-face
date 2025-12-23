@@ -95,21 +95,17 @@ class VGG(nn.Module):
         self.local = self.local_list[0]
         self.cloud = feature[1]
         self.logger = logger
-        if upsize:
-            classifier_list = [nn.Dropout(),
-                nn.Linear(2048, 512),
-                nn.ReLU(True),
-                nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True)]
-        else:          
-            classifier_list = [nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True),
-                nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True)]
-        classifier_list += [nn.Linear(512, num_class)]
+
+        classifier_in_dim = self._infer_classifier_dim()
+        classifier_list = [
+            nn.Dropout(),
+            nn.Linear(classifier_in_dim, 512),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(512, 512),
+            nn.ReLU(True),
+            nn.Linear(512, num_class),
+        ]
         self.classifier = nn.Sequential(*classifier_list)
         
         print("local:")
@@ -312,9 +308,28 @@ class VGG(nn.Module):
     def forward(self, x):
         self.local_output = self.local(x)
         x = self.cloud(self.local_output)
+        if x.dim() == 4:
+            x = F.adaptive_avg_pool2d(x, 1)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
+
+    def _infer_classifier_dim(self):
+        with torch.no_grad():
+            if self.feature_size == 16:
+                noise_input = torch.randn([1, 3, 64, 64])
+            elif self.feature_size == 8:
+                noise_input = torch.randn([1, 3, 32, 32])
+            else:
+                noise_input = torch.randn([1, 3, 48, 48])
+            device = next(self.local.parameters()).device
+            noise_input = noise_input.to(device)
+            smashed = self.local(noise_input)
+            out = self.cloud(smashed)
+            if out.dim() == 4:
+                out = F.adaptive_avg_pool2d(out, 1)
+            out = out.view(out.size(0), -1)
+            return out.size(1)
 
 
 class VGG_vib(nn.Module):
