@@ -270,28 +270,62 @@ def get_facescrub_bothloader(batch_size=16, num_workers=2, shuffle=True, num_cli
         shuffle: whether to shuffle
     Returns: train_data_loader:torch dataloader object
     """
+    def _first_existing_dir(paths):
+        for path in paths:
+            if path and os.path.isdir(path):
+                return path
+        return None
+
+    dataset_root = "./data/facescrub"
+    train_dir = _first_existing_dir([
+        os.path.join(dataset_root, "train"),
+        os.path.join(dataset_root, "training"),
+    ])
+    val_dir = _first_existing_dir([
+        os.path.join(dataset_root, "val"),
+        os.path.join(dataset_root, "valid"),
+        os.path.join(dataset_root, "validate"),
+        os.path.join(dataset_root, "test"),
+    ])
+
+    if train_dir is None or val_dir is None:
+        legacy_root = _first_existing_dir([
+            "./facescrub-dataset/64x64",
+            "./facescrub-dataset/48x48",
+            "./facescrub-dataset",
+        ])
+        if legacy_root is not None:
+            train_dir = train_dir or _first_existing_dir([os.path.join(legacy_root, "train")])
+            val_dir = val_dir or _first_existing_dir([
+                os.path.join(legacy_root, "val"),
+                os.path.join(legacy_root, "valid"),
+                os.path.join(legacy_root, "validate"),
+                os.path.join(legacy_root, "test"),
+            ])
+
+    if train_dir is None or val_dir is None:
+        raise FileNotFoundError(
+            "FaceScrub dataset not found. Expected ImageFolder structure at "
+            "'./data/facescrub/train' and './data/facescrub/val' (or 'validate'/'test')."
+        )
+
     transform_train = transforms.Compose([
         transforms.Resize((64, 64)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomRotation(15),
         transforms.ToTensor(),
-        transforms.Normalize(FACESCRUB_TRAIN_MEAN, FACESCRUB_TRAIN_STD)
+        transforms.Normalize(FACESCRUB_TRAIN_MEAN, FACESCRUB_TRAIN_STD),
     ])
 
     transform_test = transforms.Compose([
         transforms.Resize((64, 64)),
         transforms.ToTensor(),
-        transforms.Normalize(FACESCRUB_TRAIN_MEAN, FACESCRUB_TRAIN_STD)
+        transforms.Normalize(FACESCRUB_TRAIN_MEAN, FACESCRUB_TRAIN_STD),
     ])
-    # replace 32x32 to 50x50 to run the original dataset
-    if not os.path.isdir("./facescrub-dataset/48x48/train"):
-        os.system("git clone https://github.com/theothings/facescrub-dataset.git")
-        import subprocess
-        subprocess.call("python prepare_facescrub.py", shell=True)
-    facescrub_training = datasets.ImageFolder('facescrub-dataset/48x48/train', transform=transform_train)
 
-    facescrub_testing = datasets.ImageFolder('facescrub-dataset/48x48/validate', transform=transform_test)
-    facescrub_training_AT = datasets.ImageFolder('facescrub-dataset/48x48/train', transform=transform_test)
+    facescrub_training = datasets.ImageFolder(train_dir, transform=transform_train)
+    facescrub_training_AT = datasets.ImageFolder(train_dir, transform=transform_test)
+    facescrub_testing = datasets.ImageFolder(val_dir, transform=transform_test)
     if num_client == 1:
         facescrub_training_loader = [torch.utils.data.DataLoader(facescrub_training,  batch_size=batch_size, shuffle=shuffle,
                 num_workers=num_workers)]

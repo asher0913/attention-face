@@ -24,6 +24,16 @@ def init_weights(m):
         if m.bias is not None: 
             m.bias.data.zero_()
 
+class ResizeLayer(nn.Module):
+    def __init__(self, size=(64, 64)):
+        super(ResizeLayer, self).__init__()
+        self.size = size
+
+    def forward(self, x):
+        if x.size(2) != self.size[0] or x.size(3) != self.size[1]:
+            return F.interpolate(x, size=self.size, mode='bilinear', align_corners=False)
+        return x
+
 class LCALayer(nn.Module):
     def __init__(self, input_shape, num_neurons, alpha=0.2, lmbda=0.01, num_iterations=2):
         super(LCALayer, self).__init__()
@@ -95,21 +105,16 @@ class VGG(nn.Module):
         self.local = self.local_list[0]
         self.cloud = feature[1]
         self.logger = logger
-        if upsize:
-            classifier_list = [nn.Dropout(),
-                nn.Linear(2048, 512),
-                nn.ReLU(True),
-                nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True)]
-        else:          
-            classifier_list = [nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True),
-                nn.Dropout(),
-                nn.Linear(512, 512),
-                nn.ReLU(True)]
-        classifier_list += [nn.Linear(512, num_class)]
+        classifier_in_dim = self._infer_classifier_dim()
+        classifier_list = [
+            nn.Dropout(),
+            nn.Linear(classifier_in_dim, 512),
+            nn.ReLU(True),
+            nn.Dropout(),
+            nn.Linear(512, 512),
+            nn.ReLU(True),
+            nn.Linear(512, num_class),
+        ]
         self.classifier = nn.Sequential(*classifier_list)
         # if SCA:
         #     print("SCA:")
@@ -131,9 +136,10 @@ class VGG(nn.Module):
 
     def get_smashed_data_size(self):
         with torch.no_grad():
-
             try:
-                if  self.feature_size==8:
+                if self.feature_size == 16:
+                    noise_input = torch.randn([1, 3, 64, 64])
+                elif self.feature_size == 8:
                     noise_input = torch.randn([1, 3, 32, 32])
                 else:
                     noise_input = torch.randn([1, 3, 48, 48])
@@ -141,7 +147,7 @@ class VGG(nn.Module):
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
             except:
-                noise_input = torch.randn([1, 3, 48, 48])
+                noise_input = torch.randn([1, 3, 64, 64])
                 device = next(self.local.parameters()).device
                 noise_input = noise_input.to(device)
                 smashed_data = self.local(noise_input)
@@ -151,7 +157,9 @@ class VGG(nn.Module):
 
     def get_MAC_param(self): ## calculate the flops
         with torch.no_grad():
-            if  self.feature_size==8:
+            if self.feature_size == 16:
+                noise_input = torch.randn([1, 3, 64, 64])
+            elif self.feature_size == 8:
                 noise_input = torch.randn([1, 3, 32, 32])
             else:
                 noise_input = torch.randn([1, 3, 48, 48])
@@ -172,7 +180,12 @@ class VGG(nn.Module):
     def get_inference_time(self, federated = False):
       import time
       with torch.no_grad():
-          noise_input = torch.randn([128, 3, 32, 32])
+          if self.feature_size == 16:
+              noise_input = torch.randn([128, 3, 64, 64])
+          elif self.feature_size == 8:
+              noise_input = torch.randn([128, 3, 32, 32])
+          else:
+              noise_input = torch.randn([128, 3, 48, 48])
           
           if not federated:
             #CPU warm up
@@ -323,9 +336,28 @@ class VGG(nn.Module):
         #     x=reconstruction
         self.local_output = self.local(x)
         x = self.cloud(self.local_output)
+        if x.dim() == 4:
+            x = F.adaptive_avg_pool2d(x, 1)
         x = x.view(x.size(0), -1)
         x = self.classifier(x)
         return x
+
+    def _infer_classifier_dim(self):
+        with torch.no_grad():
+            if self.feature_size == 16:
+                noise_input = torch.randn([1, 3, 64, 64])
+            elif self.feature_size == 8:
+                noise_input = torch.randn([1, 3, 32, 32])
+            else:
+                noise_input = torch.randn([1, 3, 48, 48])
+            device = next(self.local.parameters()).device
+            noise_input = noise_input.to(device)
+            smashed = self.local(noise_input)
+            out = self.cloud(smashed)
+            if out.dim() == 4:
+                out = F.adaptive_avg_pool2d(out, 1)
+            out = out.view(out.size(0), -1)
+            return out.size(1)
 
 
 class VGG_vib(nn.Module):
@@ -458,6 +490,8 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
     local = []
     cloud = []
     in_channels = 3
+    if feature_size == 16:
+        local += [ResizeLayer((64, 64))]
     # if SCA:
     #     lca_layer = LCALayer(input_shape=(3, 32, 32), num_neurons=2048, alpha=0.05, lmbda=0.1, num_iterations=1)
     #     local+=[lca_layer]
@@ -589,7 +623,8 @@ def vgg11_bn(cutting_layer, logger, num_client = 1, num_class = 10, initialize_d
 
 def vgg11_bn_sgm(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False,feature_size=8):
     """VGG 11-layer model (configuration "A") with batch normalization"""
-    # print('the value of SCA is:',SCA)
+    feature_size = 16
+    upsize = True
     return VGG(make_layers(cutting_layer,cfg['A'], batch_norm=True, adds_bottleneck = adds_bottleneck, bottleneck_option = bottleneck_option,sgm=True,double_local_layer=double_local_layer,SCA=SCA,feature_size=feature_size), logger, num_client = num_client, num_class = num_class, initialize_different = initialize_different,upsize=upsize,feature_size=feature_size)
 
 def vgg13(cutting_layer, logger, num_client = 1, num_class = 10, initialize_different = False, adds_bottleneck = False, bottleneck_option = "C8S1",double_local_layer=False,upsize=False,SCA=False):

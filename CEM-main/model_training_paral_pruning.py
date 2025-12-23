@@ -604,6 +604,11 @@ class MIA_train: # main class for every thing
         for i in range(len(self.local_optimizer_list)):
             self.local_optimizer_list[i].zero_grad()
 
+    def _flatten_for_classifier(self, output):
+        if output.dim() == 4:
+            output = F.adaptive_avg_pool2d(output, 1)
+        return output.view(output.size(0), -1)
+
     def scheduler_step(self, epoch = 0, warmup = False):
         if warmup:
             self.warmup_scheduler.step()
@@ -1116,7 +1121,7 @@ class MIA_train: # main class for every thing
             output = output.view(output.size(0), -1)
             output = self.classifier(output)
         else:
-            output = output.view(output.size(0), -1)
+            output = self._flatten_for_classifier(output)
             output = self.classifier(output)
         
         criterion = torch.nn.CrossEntropyLoss()
@@ -1324,7 +1329,7 @@ class MIA_train: # main class for every thing
                     output = output.view(output.size(0), -1)
                     output = self.classifier(output)
                 else:
-                    output = output.view(output.size(0), -1)
+                    output = self._flatten_for_classifier(output)
                     output = self.classifier(output)
                 loss = criterion(output, target)
 
@@ -2108,7 +2113,7 @@ class MIA_train: # main class for every thing
                     ir = ir.view(ir.size(0), -1)
                     ir = self.classifier(ir)
                 else:
-                    ir = ir.view(ir.size(0), -1)
+                    ir = self._flatten_for_classifier(ir)
                     ir = self.classifier(ir)
             
             if attack_from_later_layer > -1 and (not self.confidence_score):
@@ -2746,7 +2751,7 @@ class MIA_train: # main class for every thing
                         pred = pred.view(pred.size(0), -1)
                         pred = self.classifier(pred)
                     else:
-                        pred = pred.view(pred.size(0), -1)
+                        pred = self._flatten_for_classifier(pred)
                         pred = self.classifier(pred)
                 prec1 = accuracy(pred.data.cpu(), target.cpu())[
                 0] 
@@ -2796,7 +2801,7 @@ class MIA_train: # main class for every thing
                             pred = pred.view(pred.size(0), -1)
                             pred = self.classifier(pred)
                         else:
-                            pred = pred.view(pred.size(0), -1)
+                            pred = self._flatten_for_classifier(pred)
                             pred = self.classifier(pred)
                     prec1 = accuracy(pred.data.cpu(), targets.cpu())[
                     0] 
@@ -3016,7 +3021,7 @@ class MIA_train: # main class for every thing
                         save_activation = save_activation.view(save_activation.size(0), -1)
                         save_activation = self.classifier(save_activation)
                     else:
-                        save_activation = save_activation.view(save_activation.size(0), -1)
+                        save_activation = self._flatten_for_classifier(save_activation)
                         save_activation = self.classifier(save_activation)
             
 

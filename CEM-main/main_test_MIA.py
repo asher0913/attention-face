@@ -3,6 +3,7 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+import os
 import MIA_torch
 from datasets_torch import *
 from utils import setup_logger
@@ -72,6 +73,60 @@ random_seed=args.random_seed
 # torch.manual_seed(args.random_seed)
 # np.random.seed(args.random_seed)
 
+def _first_batch(loader_like):
+    loader = loader_like[0] if isinstance(loader_like, list) else loader_like
+    return next(iter(loader))
+
+
+def load_fixed_test_data(dataset_name, batch_size):
+    img_path = f"./test_{dataset_name}_image.pt"
+    label_path = f"./test_{dataset_name}_label.pt"
+    if os.path.isfile(img_path) and os.path.isfile(label_path):
+        return torch.load(img_path), torch.load(label_path)
+
+    if dataset_name == "facescrub":
+        facescrub_training_loader, _, _, _, _ = get_facescrub_bothloader(
+            batch_size=batch_size,
+            num_workers=2,
+            shuffle=False,
+            num_client=1,
+            collude_use_public=False,
+        )
+        images, labels = _first_batch(facescrub_training_loader)
+    elif dataset_name == "cifar10":
+        cifar10_training_loader, _, _ = get_cifar10_trainloader(
+            batch_size=batch_size, num_workers=2, shuffle=False, num_client=1
+        )
+        images, labels = _first_batch(cifar10_training_loader)
+    elif dataset_name == "cifar100":
+        cifar100_training_loader, _, _ = get_cifar100_trainloader(
+            batch_size=batch_size, num_workers=2, shuffle=False, num_client=1
+        )
+        images, labels = _first_batch(cifar100_training_loader)
+    elif dataset_name == "svhn":
+        svhn_training_loader, _, _ = get_SVHN_trainloader(
+            batch_size=batch_size, num_workers=2, shuffle=False, num_client=1
+        )
+        images, labels = _first_batch(svhn_training_loader)
+    elif dataset_name == "mnist":
+        mnist_training_loader, _ = get_mnist_bothloader(
+            batch_size=batch_size, num_workers=2, shuffle=False, num_client=1
+        )
+        images, labels = _first_batch(mnist_training_loader)
+    elif dataset_name == "fmnist":
+        fmnist_training_loader, _ = get_fmnist_bothloader(
+            batch_size=batch_size, num_workers=2, shuffle=False, num_client=1
+        )
+        images, labels = _first_batch(fmnist_training_loader)
+    else:
+        raise FileNotFoundError(
+            f"Missing cached test tensors for {dataset_name} and no fallback loader available."
+        )
+
+    torch.save(images, img_path)
+    torch.save(labels, label_path)
+    return images, labels
+
 if args.attack_confidence_score:
     args.attack_from_later_layer = -1
 
@@ -123,7 +178,13 @@ for date_0 in date_list:
     
     if "orig" not in args.scheme:
         print('the test model is:',args.num_epochs)
-        mi.resume("./{}/{}/checkpoint_f_{}.tar".format(args.folder, date_0, args.num_epochs))
+        resume_path = "./{}/{}/checkpoint_f_{}.tar".format(args.folder, date_0, args.num_epochs)
+        if not os.path.isfile(resume_path) and args.test_best:
+            fallback_path = "./{}/{}/checkpoint_f_240.tar".format(args.folder, date_0)
+            if os.path.isfile(fallback_path):
+                print(f"best checkpoint missing, fallback to {fallback_path}")
+                resume_path = fallback_path
+        mi.resume(resume_path)
     else:
         print("resume orig scheme's checkpoint")
         mi.resume("./{}/{}/checkpoint_{}.tar".format(args.folder, date_0, args.num_epochs))
@@ -174,24 +235,7 @@ for date_0 in date_list:
     # torch.save(labels, "./test_fmnist_label.pt")
 
     '''Use a fix set of testing image for each experiment'''
-    if args.dataset == "cifar10":
-        images = torch.load("./test_cifar10_image.pt")
-        labels = torch.load("./test_cifar10_label.pt")
-    elif args.dataset == "svhn":
-        images = torch.load("./test_svhn_image.pt")
-        labels = torch.load("./test_svhn_label.pt")
-    elif args.dataset == "cifar100":
-        images = torch.load("./test_cifar100_image.pt")
-        labels = torch.load("./test_cifar100_label.pt")
-    elif args.dataset == "mnist":
-        images = torch.load("./test_mnist_image.pt")
-        labels = torch.load("./test_mnist_label.pt")
-    elif args.dataset == "fmnist":
-        images = torch.load("./test_fmnist_image.pt")
-        labels = torch.load("./test_fmnist_label.pt")
-    elif args.dataset == "facescrub":
-        images = torch.load("./test_facescrub_image.pt")
-        labels = torch.load("./test_facescrub_label.pt")
+    images, labels = load_fixed_test_data(args.dataset, batch_size)
     # print('the length of the test image is:',len(images))
 
 
