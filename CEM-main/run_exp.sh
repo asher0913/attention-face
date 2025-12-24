@@ -21,8 +21,8 @@ random_seed=125
 cutlayer_list="4"
 num_client=1
 
-AT_regularization=SCA_new #"gan_adv_step1;dropout0.2;gan_adv_step1_pruning180 nopeek"
-AT_regularization_strength=0.3
+AT_regularization=none #"gan_adv_step1;dropout0.2;gan_adv_step1_pruning180 nopeek"
+AT_regularization_strength=0
 ssim_threshold=0.5
 train_gan_AE_type=res_normN4C64
 gan_loss_type=SSIM
