@@ -21,8 +21,8 @@ random_seed=125
 cutlayer_list="4"
 num_client=1
 
-AT_regularization=none #"gan_adv_step1;dropout0.2;gan_adv_step1_pruning180 nopeek"
-AT_regularization_strength=0
+AT_regularization=SCA_new #"gan_adv_step1;dropout0.2;gan_adv_step1_pruning180 nopeek"
+AT_regularization_strength=0.3
 ssim_threshold=0.5
 train_gan_AE_type=res_normN4C64
 gan_loss_type=SSIM
@@ -33,11 +33,11 @@ random_seed_list="125"
 #Extra argement (store_true): --collude_use_public, --initialize_different  --collude_not_regularize  --collude_not_regularize --num_client_regularize ${num_client_regularize}
 
 regularization='Gaussian_kl' #'Gaussian_Nonekl'
-var_threshold=0.125
+var_threshold=0.15
 learning_rate=0.05
 local_lr=-1
 num_epochs=240
-regularization_strength_list="0.025"
+regularization_strength_list="0.05"
 lambd_list="16" #
 log_entropy=1
 folder_name="saves/facescrub_baseline/${AT_regularization}_infocons_sgm_lg${log_entropy}_thre${var_threshold}" ##the folder to save the model

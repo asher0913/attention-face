@@ -21,8 +21,8 @@ random_seed=125
 cutlayer_list="4"
 num_client=1
 
-AT_regularization=none
-AT_regularization_strength=0
+AT_regularization=SCA_new #"gan_adv_step1;dropout0.2;gan_adv_step1_pruning180 nopeek"
+AT_regularization_strength=0.3
 ssim_threshold=0.5
 train_gan_AE_type=res_normN4C64
 gan_loss_type=SSIM
@@ -32,20 +32,21 @@ scheme=V2_epoch
 random_seed_list="125"
 
 regularization='Gaussian_kl'
-var_threshold=0.125
+var_threshold=0.15
 learning_rate=0.05
 local_lr=-1
 num_epochs=240
 regularization_strength_list="0.05"
-lambd_list="16 24"
+lambd_list="16"
 log_entropy=1
 folder_name="saves/facescrub/${AT_regularization}_slotatt_opt_lg${log_entropy}_thre${var_threshold}"
 bottleneck_option_list="noRELU_C8S1"
 pretrain="False"
+#######new attention hyperparameters######
 attention_num_slots=8
 attention_num_heads=4
 attention_num_iterations=3
-attention_loss_scale=0.35
+attention_loss_scale=0.5
 attention_warmup_epochs=3
 
 for dataset in $dataset_list; do
