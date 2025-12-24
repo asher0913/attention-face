@@ -43,6 +43,11 @@ parser.add_argument('--gan_loss_type', default="SSIM", type=str, help='loss type
 parser.add_argument('--bottleneck_option', default="None", type=str, help='set bottleneck option')
 parser.add_argument('--optimize_computation', default=1, type=int, help='set interval N to optimize_computation')
 parser.add_argument('--decoder_sync', action='store_true', default=False, help='if True, we sync decoder')
+parser.add_argument('--attention_num_slots', default=8, type=int, help='slot attention: number of slots used in attention CEM')
+parser.add_argument('--attention_num_heads', default=4, type=int, help='cross attention: number of heads (must divide feature dim)')
+parser.add_argument('--attention_num_iterations', default=3, type=int, help='slot attention: number of refinement iterations')
+parser.add_argument('--attention_loss_scale', default=0.25, type=float, help='scale factor for attention CEM loss')
+parser.add_argument('--attention_warmup_epochs', default=3, type=int, help='epochs to wait before applying attention CEM loss')
 
 #training dataset setting ()
 parser.add_argument('--load_from_checkpoint', action='store_true', default=False, help='if True, we load_from_checkpoint')
@@ -72,6 +77,9 @@ mi = model_training_paral_pruning.MIA_train(args.arch, cutting_layer, batch_size
                  load_from_checkpoint = args.load_from_checkpoint, bottleneck_option = args.bottleneck_option, 
                  optimize_computation = args.optimize_computation, decoder_sync = args.decoder_sync, 
                  finetune_freeze_bn = args.finetune_freeze_bn, gan_loss_type=args.gan_loss_type, ssim_threshold = args.ssim_threshold,var_threshold = args.var_threshold,
+                 attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
+                 attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
+                 attention_warmup_epochs=args.attention_warmup_epochs,
                  source_task = args.transfer_source_task, load_from_checkpoint_server = args.load_from_checkpoint_server, save_more_checkpoints = args.save_more_checkpoints,
                  dataset_portion = args.dataset_portion, noniid = args.noniid, client_sample_ratio = args.client_sample_ratio)
 mi.logger.debug(str(args))

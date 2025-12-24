@@ -108,35 +108,45 @@ class CrossAttention(nn.Module):
         )
         self.scale = (self.head_dim) ** -0.5
 
-    def forward(self, query_features, slot_outputs):
-        B, D = query_features.shape
-        if slot_outputs.dim() == 2:
-            slot_outputs = slot_outputs.unsqueeze(0).expand(B, -1, -1)
-        S = slot_outputs.size(1)
+    def forward(self, query_features, kv_features):
+        squeeze_q = False
+        if query_features.dim() == 2:
+            query_features = query_features.unsqueeze(1)
+            squeeze_q = True
+        if kv_features.dim() == 2:
+            kv_features = kv_features.unsqueeze(1)
+
+        B, Q, D = query_features.shape
+        _, K, _ = kv_features.shape
         H, d = self.num_heads, self.head_dim
+
         q_in = self.ln_q(query_features)
-        kv_in = self.ln_kv(slot_outputs)
-        q = self.to_q(q_in).view(B, H, 1, d)
-        k = self.to_k(kv_in).view(B, S, H, d).transpose(1, 2)
-        v = self.to_v(kv_in).view(B, S, H, d).transpose(1, 2)
+        kv_in = self.ln_kv(kv_features)
+        q = self.to_q(q_in).view(B, Q, H, d).transpose(1, 2)
+        k = self.to_k(kv_in).view(B, K, H, d).transpose(1, 2)
+        v = self.to_v(kv_in).view(B, K, H, d).transpose(1, 2)
         attn = torch.matmul(q, k.transpose(-2, -1)) * self.scale
         attn = torch.softmax(attn, dim=-1)
-        out = torch.matmul(attn, v).reshape(B, D)
+        out = torch.matmul(attn, v).transpose(1, 2).reshape(B, Q, D)
         out = self.proj(out)
         y = query_features + torch.tanh(self.alpha_xattn) * out
         y_ff = self.ffn(self.ln_ff(y))
         y = y + torch.tanh(self.alpha_ffn) * y_ff
+        if squeeze_q:
+            y = y.squeeze(1)
         return y
 
 class SlotCrossAttentionCEM(nn.Module):
     def __init__(self, feature_dim=128, num_slots=8, num_heads=4, num_iterations=3,
-                 eps_var=1e-4, var_threshold=0.1, reg_strength=0.0):
+                 eps_var=1e-4, var_threshold=0.1, reg_strength=0.0, log_entropy=1):
         super().__init__()
         self.slot_attention = SlotAttention(feature_dim, num_slots, num_iterations)
+        self.cross_attn = CrossAttention(feature_dim, num_heads=num_heads)
         self.feature_dim = feature_dim
         self.eps_var = eps_var
         self.var_threshold = var_threshold
         self.reg_strength = reg_strength
+        self.log_entropy = log_entropy
 
         # [FaceScrub Optimization] Running Stats for Stability
         self.register_buffer('running_mu', torch.zeros(1, num_slots, feature_dim))
@@ -150,6 +160,7 @@ class SlotCrossAttentionCEM(nn.Module):
         if features.dim() == 2:
             features = features.unsqueeze(1)
         slots = self.slot_attention(features)
+        slots = self.cross_attn(slots, features)
 
         mu_s = self.head_mu(slots)
         var_s = self.head_logvar(slots) + self.eps_var
@@ -159,12 +170,31 @@ class SlotCrossAttentionCEM(nn.Module):
                 self.running_mu = self.momentum * self.running_mu + (1 - self.momentum) * mu_s.mean(0, keepdim=True)
                 self.running_var = self.momentum * self.running_var + (1 - self.momentum) * var_s.mean(0, keepdim=True)
 
-        # Simplified Entropy Maximization
-        threshold = self.var_threshold * (self.reg_strength ** 2) + 1e-6
-        threshold_t = features.new_tensor(threshold)
-        rob_loss = F.relu(torch.log(threshold_t) - torch.log(var_s)).mean()
+        var_per_slot = var_s.mean(dim=-1)
+        if self.log_entropy <= 0:
+            per_sample = var_per_slot.mean(dim=-1)
+        else:
+            strength = self.reg_strength if self.reg_strength > 0 else 1.0
+            threshold = self.var_threshold * (strength ** 2) + self.eps_var
+            threshold_t = features.new_tensor(threshold)
+            per_sample = F.relu(torch.log(threshold_t) - torch.log(var_per_slot + self.eps_var)).mean(dim=-1)
 
-        return rob_loss, features.new_tensor(0.0)
+        if labels is not None:
+            if unique_labels is None:
+                unique_labels = torch.unique(labels)
+            loss_accum = 0.0
+            count = 0
+            for label in unique_labels:
+                mask = labels == label
+                if mask.any():
+                    loss_accum += per_sample[mask].mean()
+                    count += 1
+            rob_loss = loss_accum / max(count, 1)
+        else:
+            rob_loss = per_sample.mean()
+
+        intra_class_mse = var_per_slot.mean()
+        return rob_loss, intra_class_mse
 def init_weights(m): # weight initialization
     if type(m) == nn.Linear:
         torch.nn.init.xavier_uniform_(m.weight, gain=1.0)
@@ -273,14 +303,16 @@ def save_images(input_imgs, output_imgs, epoch, path, offset=0, batch_size=64): 
 
 class MIA_train: # main class for every thing
 
-    def __init__(self, arch, cutting_layer, batch_size, n_epochs,lambd=1, scheme="V2_epoch", num_client=1, dataset="cifar10",
+    def __init__(self, arch, cutting_layer, batch_size, n_epochs, lambd=1, scheme="V2_epoch", num_client=1, dataset="cifar10",
                  logger=None, save_dir=None, regularization_option="None", regularization_strength=0, AT_regularization_option="None", AT_regularization_strength=0, log_entropy=0,
-                 collude_use_public=False, initialize_different=False, learning_rate=0.1, local_lr = -1,
-                 gan_AE_type="custom", random_seed=123, client_sample_ratio = 1.0,
-                 load_from_checkpoint = False, bottleneck_option="None", measure_option=False,
-                 optimize_computation=1, decoder_sync = False, bhtsne_option = False, gan_loss_type = "SSIM", attack_confidence_score = False,
-                 ssim_threshold = 0.0,var_threshold = 0.1, finetune_freeze_bn = False, load_from_checkpoint_server = False, source_task = "cifar100", 
-                 save_activation_tensor = False, save_more_checkpoints = False, dataset_portion = 1.0, noniid = 1.0):
+                 collude_use_public=False, initialize_different=False, learning_rate=0.1, local_lr=-1,
+                 gan_AE_type="custom", random_seed=123, client_sample_ratio=1.0,
+                 load_from_checkpoint=False, bottleneck_option="None", measure_option=False,
+                 optimize_computation=1, decoder_sync=False, bhtsne_option=False, gan_loss_type="SSIM", attack_confidence_score=False,
+                 ssim_threshold=0.0, var_threshold=0.1, attention_num_slots=8, attention_num_heads=4, attention_num_iterations=3,
+                 attention_loss_scale=0.25, attention_warmup_epochs=3, finetune_freeze_bn=False,
+                 load_from_checkpoint_server=False, source_task="cifar100",
+                 save_activation_tensor=False, save_more_checkpoints=False, dataset_portion=1.0, noniid=1.0):
         torch.manual_seed(random_seed)
         np.random.seed(random_seed)
         self.arch = arch
@@ -468,8 +500,11 @@ class MIA_train: # main class for every thing
         self.use_attention_cem = True
         self.attention_cem = None
         self._attention_cem_registered = False
-        self.attention_warmup_epochs = 3
-        self.attention_loss_scale = 0.25
+        self.attention_warmup_epochs = attention_warmup_epochs
+        self.attention_loss_scale = attention_loss_scale
+        self.attention_num_slots = attention_num_slots
+        self.attention_num_heads = attention_num_heads
+        self.attention_num_iterations = attention_num_iterations
 
 
         # client sampling: dividing datasets to actual number of clients, self.num_clients is fake num of clients for ease of simulation.
@@ -1104,53 +1139,6 @@ class MIA_train: # main class for every thing
     '''Main training function, the communication between client/server is implicit to keep a fast training speed'''
     def train_target_step(self, x_private, label_private, adding_noise, random_ini_centers, centroids_list, weights_list, cluster_variances_list, client_id=0):
         self.optimizer_zero_grad()
-        self.f.train(); self.f_tail.train(); self.classifier.train()
-        
-        if self.load_from_checkpoint and self.finetune_freeze_bn:
-            freeze_model_bn(self.f)
-
-        x_private, label_private = x_private.cuda(), label_private.cuda()
-        z_private = self.f(x_private)
-        
-        use_attention = (self.use_attention_cem and not random_ini_centers and self.lambd > 0)
-        rob_loss = torch.zeros((), device=x_private.device)
-        
-        if use_attention:
-            # Flatten spatial dims for FaceScrub [B, D, H, W] -> [B, N, D]
-            if z_private.dim() == 4:
-                feats_flat = z_private.permute(0, 2, 3, 1).flatten(1, 2)
-            else:
-                feats_flat = z_private
-                
-            if self.attention_cem is None:
-                self.attention_cem = SlotCrossAttentionCEM(feature_dim=feats_flat.size(-1), num_slots=8).to(x_private.device)
-                self.optimizer.add_param_group({'params': self.attention_cem.parameters()})
-            
-            rob_loss, _ = self.attention_cem(feats_flat, label_private, None)
-
-        # Forward Cloud
-        output = self.f_tail(z_private)
-        if output.dim() == 4:
-            output = F.adaptive_avg_pool2d(output, 1)
-        output = output.view(output.size(0), -1)
-        output = self.classifier(output)
-        
-        f_loss = torch.nn.CrossEntropyLoss()(output, label_private)
-        
-        # Auto-grad combination (Warmup check: 20 epochs)
-        total_loss = f_loss
-        if use_attention and self.current_epoch > 20:
-            total_loss += self.lambd * rob_loss
-            
-        total_loss.backward()
-        
-        return total_loss.detach().cpu().numpy(), f_loss.detach().cpu().numpy(), z_private
-
-        # ---------------------------------------------------------------------
-        # Legacy implementation (kept for reference; unreachable due to return).
-        # ---------------------------------------------------------------------
-        # 每个 step 必须先清梯度，避免跨 step 累积导致学习无效
-        self.optimizer_zero_grad()
         self.f_tail.train()
         self.classifier.train()
         self.f.train()
@@ -1178,23 +1166,25 @@ class MIA_train: # main class for every thing
 
         if use_attention:
             if z_private.dim() == 4:
-                feats_flat = z_private.view(z_private.size(0), -1)
+                feats_flat = z_private.permute(0, 2, 3, 1).flatten(1, 2)
             else:
-                feats_flat = z_private
+                feats_flat = z_private.unsqueeze(1) if z_private.dim() == 2 else z_private
             if torch.isnan(feats_flat).any() or torch.isinf(feats_flat).any():
                 print("Warning: NaN/Inf detected in features, skipping CEM calculation")
                 rob_loss = torch.zeros((), device=device)
                 intra_class_mse = torch.zeros((), device=device)
             else:
                 if self.attention_cem is None:
+                    reg_strength = self.regularization_strength if self.regularization_strength > 0 else 1.0
                     self.attention_cem = SlotCrossAttentionCEM(
-                        feature_dim=feats_flat.size(1),
-                        num_slots=8,
-                        num_heads=4,
-                        num_iterations=3,
+                        feature_dim=feats_flat.size(-1),
+                        num_slots=self.attention_num_slots,
+                        num_heads=self.attention_num_heads,
+                        num_iterations=self.attention_num_iterations,
                         eps_var=1e-4,
                         var_threshold=self.var_threshold,
-                        reg_strength=self.regularization_strength,
+                        reg_strength=reg_strength,
+                        log_entropy=self.log_entropy,
                     ).to(device)
                     if not self._attention_cem_registered:
                         base_group = self.optimizer.param_groups[0]
@@ -1206,6 +1196,10 @@ class MIA_train: # main class for every thing
                         })
                         self._attention_cem_registered = True
                 else:
+                    reg_strength = self.regularization_strength if self.regularization_strength > 0 else 1.0
+                    self.attention_cem.var_threshold = self.var_threshold
+                    self.attention_cem.reg_strength = reg_strength
+                    self.attention_cem.log_entropy = self.log_entropy
                     self.attention_cem.train()
                 try:
                     rob_loss, intra_class_mse = self.attention_cem(feats_flat, label_private, unique_labels)

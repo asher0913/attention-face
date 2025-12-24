@@ -55,6 +55,11 @@ parser.add_argument('--measure_option', action='store_true', default=False, help
 parser.add_argument('--noise_aware', action='store_true', default=False, help='if True, we set noise_aware and try to break GAN_noise defense.')
 parser.add_argument('--new_log_folder', action='store_true', default=False, help='if True, we set separate folder to store log results name: $regularization_$regularization_strength.')
 parser.add_argument('--bhtsne_option', action='store_true', default=False, help='if True, we set bhtsne_option to visualize activation.')
+parser.add_argument('--attention_num_slots', default=8, type=int, help='slot attention: number of slots used in attention CEM')
+parser.add_argument('--attention_num_heads', default=4, type=int, help='cross attention: number of heads (must divide feature dim)')
+parser.add_argument('--attention_num_iterations', default=3, type=int, help='slot attention: number of refinement iterations')
+parser.add_argument('--attention_loss_scale', default=0.25, type=float, help='scale factor for attention CEM loss')
+parser.add_argument('--attention_warmup_epochs', default=3, type=int, help='epochs to wait before applying attention CEM loss')
 
 args = parser.parse_args()
 
@@ -151,7 +156,10 @@ for date_0 in date_list:
     mi = model_training_paral_pruning.MIA_train(args.arch, cutting_layer, batch_size, n_epochs = args.num_epochs, scheme = args.scheme,
                     num_client = num_client, dataset=args.dataset, save_dir=save_dir_name,random_seed=random_seed,
                     regularization_option=args.regularization, regularization_strength = args.regularization_strength, AT_regularization_option=args.AT_regularization, AT_regularization_strength = args.AT_regularization_strength, log_entropy=args.log_entropy,
-                    gan_AE_type = args.gan_AE_type, bottleneck_option = args.bottleneck_option, gan_loss_type=args.gan_loss_type)
+                    gan_AE_type = args.gan_AE_type, bottleneck_option = args.bottleneck_option, gan_loss_type=args.gan_loss_type,
+                    attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
+                    attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
+                    attention_warmup_epochs=args.attention_warmup_epochs)
     if args.new_log_folder:
         new_folder_dir = mi.save_dir + '/{}_{}/'.format(args.regularization, args.regularization_strength)
         new_folder_dir = os.path.abspath(new_folder_dir)

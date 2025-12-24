@@ -42,6 +42,11 @@ log_entropy=1
 folder_name="saves/facescrub/${AT_regularization}_slotatt_opt_lg${log_entropy}_thre${var_threshold}"
 bottleneck_option_list="noRELU_C8S1"
 pretrain="False"
+attention_num_slots=8
+attention_num_heads=4
+attention_num_iterations=3
+attention_loss_scale=0.35
+attention_warmup_epochs=3
 
 for dataset in $dataset_list; do
         for lambd in $lambd_list; do
@@ -59,7 +64,10 @@ for dataset in $dataset_list; do
                                                 --filename=$filename --num_client=$num_client --num_epochs=$num_epochs \
                                                 --dataset=$dataset --scheme=$scheme --regularization=${regularization} --regularization_strength=${regularization_strength} --log_entropy=${log_entropy} --AT_regularization=${AT_regularization} --AT_regularization_strength=${AT_regularization_strength}\
                                                 --random_seed=$random_seed --learning_rate=$learning_rate --lambd=${lambd}  --gan_AE_type ${train_gan_AE_type} --gan_loss_type ${gan_loss_type}\
-                                                --local_lr $local_lr --bottleneck_option ${bottleneck_option} --folder ${folder_name} --ssim_threshold ${ssim_threshold} --var_threshold ${var_threshold} --load_from_checkpoint --load_from_checkpoint_server
+                                                --local_lr $local_lr --bottleneck_option ${bottleneck_option} --folder ${folder_name} --ssim_threshold ${ssim_threshold} --var_threshold ${var_threshold} \
+                                                --attention_num_slots ${attention_num_slots} --attention_num_heads ${attention_num_heads} --attention_num_iterations ${attention_num_iterations} \
+                                                --attention_loss_scale ${attention_loss_scale} --attention_warmup_epochs ${attention_warmup_epochs} \
+                                                --load_from_checkpoint --load_from_checkpoint_server
                                         else
                                                 num_epochs=240
                                                 learning_rate=0.05
@@ -67,7 +75,9 @@ for dataset in $dataset_list; do
                                                 --filename=$filename --num_client=$num_client --num_epochs=$num_epochs \
                                                 --dataset=$dataset --scheme=$scheme --regularization=${regularization} --regularization_strength=${regularization_strength} --log_entropy=${log_entropy} --AT_regularization=${AT_regularization} --AT_regularization_strength=${AT_regularization_strength}\
                                                 --random_seed=$random_seed --learning_rate=$learning_rate --lambd=$lambd  --gan_AE_type ${train_gan_AE_type} --gan_loss_type ${gan_loss_type} \
-                                                --local_lr $local_lr --bottleneck_option ${bottleneck_option} --folder ${folder_name} --ssim_threshold ${ssim_threshold} --var_threshold ${var_threshold}
+                                                --local_lr $local_lr --bottleneck_option ${bottleneck_option} --folder ${folder_name} --ssim_threshold ${ssim_threshold} --var_threshold ${var_threshold} \
+                                                --attention_num_slots ${attention_num_slots} --attention_num_heads ${attention_num_heads} --attention_num_iterations ${attention_num_iterations} \
+                                                --attention_loss_scale ${attention_loss_scale} --attention_warmup_epochs ${attention_warmup_epochs}
                                         fi
 
 ########################### model inversion attack ###########################
@@ -84,6 +94,8 @@ for dataset in $dataset_list; do
                                                 --dataset=$dataset --scheme=$scheme --regularization=${regularization} --regularization_strength=${regularization_strength} --log_entropy=${log_entropy} --AT_regularization=${AT_regularization} --AT_regularization_strength=${AT_regularization_strength}\
                                                 --random_seed=$random_seed --gan_AE_type ${train_gan_AE_type} --gan_loss_type ${gan_loss_type}\
                                                 --attack_epochs=$attack_epochs --bottleneck_option ${bottleneck_option} --folder ${folder_name} --var_threshold ${var_threshold} \
+                                                --attention_num_slots ${attention_num_slots} --attention_num_heads ${attention_num_heads} --attention_num_iterations ${attention_num_iterations} \
+                                                --attention_loss_scale ${attention_loss_scale} --attention_warmup_epochs ${attention_warmup_epochs} \
                                                 --average_time=$average_time --gan_AE_type ${test_gan_AE_type} --test_best
                                 done
                         done
