@@ -1,0 +1,5 @@
+Run folder: /Users/asher/Documents/attention-face/run2log_20260314_194708
+Console:    /Users/asher/Documents/attention-face/run2log_20260314_194708/run2_console.txt
+Manifest:   /Users/asher/Documents/attention-face/run2log_20260314_194708/run2_manifest.tsv
+Summary:    /Users/asher/Documents/attention-face/run2log_20260314_194708/run2_summary.csv
+python command not found in PATH
