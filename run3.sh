@@ -260,7 +260,6 @@ CFGEOF
         --AT_regularization="${AT_REG}" \
         --AT_regularization_strength="${AT_REG_STR}" \
         --random_seed="${RANDOM_SEED}" \
-        --gan_AE_type="${TEST_AE}" \
         --gan_loss_type="${GAN_LOSS}" \
         --attack_epochs="${ATTACK_EPOCHS}" \
         --bottleneck_option="${BOTTLENECK}" \
