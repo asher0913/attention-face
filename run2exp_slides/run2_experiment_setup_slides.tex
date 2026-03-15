@@ -1,0 +1,319 @@
+\documentclass[aspectratio=169]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{ragged2e}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\usetheme{Madrid}
+\usecolortheme{default}
+\beamertemplatenavigationsymbolsempty
+
+\definecolor{TitleBlue}{RGB}{24,73,124}
+\definecolor{AccentOrange}{RGB}{204,102,0}
+\definecolor{SoftGray}{RGB}{242,244,247}
+
+\setbeamercolor{title}{fg=TitleBlue}
+\setbeamercolor{frametitle}{fg=TitleBlue}
+\setbeamercolor{structure}{fg=TitleBlue}
+\setbeamercolor{block title}{fg=white,bg=TitleBlue}
+\setbeamercolor{block body}{bg=SoftGray}
+\setbeamercolor{alerted text}{fg=AccentOrange}
+
+\newcommand{\stepheader}[2]{
+    \frametitle{Step #1: #2}
+}
+
+\title{Explaining the \texttt{run2.sh} Experimental Setup}
+\subtitle{Slot-Attention Privacy Model on FaceScrub}
+\author{Project Presentation Draft}
+\date{\today}
+
+\begin{document}
+
+\begin{frame}
+    \titlepage
+\end{frame}
+
+\begin{frame}
+    \frametitle{Pipeline Overview and Search Logic}
+    \scriptsize
+    \begin{block}{Goal}
+        Beat the original CEM baseline on FaceScrub under a fair split-learning setup by tuning the \alert{new slot-attention regularizer}, not by changing the backbone or attack budget.
+    \end{block}
+
+    \begin{columns}[T]
+        \column{0.49\textwidth}
+        \textbf{Fixed for fairness}
+        \begin{itemize}
+            \item Dataset: FaceScrub, input resized to 64x64
+            \item Backbone: \texttt{vgg11\_bn\_sgm}
+            \item Split point: \texttt{cutlayer=4}
+            \item Bottleneck: \texttt{noRELU\_C8S1}
+            \item Auxiliary structure: \texttt{SCA\_new}
+            \item Attack protocol: MIA, 50 epochs
+        \end{itemize}
+
+        \column{0.49\textwidth}
+        \textbf{Searched in 20 runs}
+        \begin{itemize}
+            \item Batch size: 224 / 256 / 288
+            \item LR: 0.018 to 0.035
+            \item Epochs: 280 to 340
+            \item Noise strength: 0.025 to 0.060
+            \item Lambda: 6 to 40
+            \item Variance threshold: 0.08 to 0.22
+            \item Slots: 5 to 14
+            \item Heads: 2 or 4
+            \item Slot iterations: 3 to 6
+            \item Attention loss scale: 0.25 to 1.00
+            \item Warmup: 6 to 18 epochs
+        \end{itemize}
+    \end{columns}
+\end{frame}
+
+\begin{frame}
+    \stepheader{1}{Data Loading and Input Geometry}
+    \small
+    \begin{block}{What happens here}
+        FaceScrub images are loaded and resized to 64x64 before entering the split model. This preserves enough facial structure for spatial tokenization and slot grouping.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{dataset=facescrub}, 64x64 input resolution
+        \item Searched: \texttt{batch\_size = 224, 256, 288}
+    \end{itemize}
+    \textbf{Why these choices}
+    \begin{itemize}
+        \item 64x64 gives the slot module meaningful face layout, unlike lower resolutions.
+        \item Larger batches stabilize class-conditional and slot-level statistics.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item More stable token distributions and more reliable slot regularization.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{2}{Client Encoder and Split Boundary}
+    \small
+    \begin{block}{What happens here}
+        The client side extracts a mid-level representation and sends smashed data to the server. The split point controls how much local information remains before transmission.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{arch=vgg11\_bn\_sgm}
+        \item Fixed: \texttt{cutlayer=4}
+        \item Fixed: \texttt{num\_client=1}
+    \end{itemize}
+    \textbf{Why these choices}
+    \begin{itemize}
+        \item The backbone and split point were kept fixed to ensure a fair comparison against the original baseline.
+        \item The goal is to test the new regularizer, not to win by changing the entire network.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item A consistent client/server boundary so any gain can be attributed to the slot-attention method.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{3}{Bottleneck Geometry of Smashed Data}
+    \small
+    \begin{block}{What happens here}
+        The bottleneck compresses the client feature map before it is sent to the server, but it must preserve enough spatial structure for token-based modeling.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{bottleneck\_option=noRELU\_C8S1}
+    \end{itemize}
+    \textbf{Why this was fixed}
+    \begin{itemize}
+        \item \texttt{C8} keeps communication compact.
+        \item \texttt{S1} preserves the 16x16 spatial grid, which is essential for slot attention.
+        \item \texttt{noRELU} avoids extra distortion of the compressed representation.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item A compact but spatially aligned smashed feature map that can still be decomposed into meaningful facial parts.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{4}{Structured Preconditioning with SCA}
+    \small
+    \begin{block}{What happens here}
+        Before the slot module sees the smashed data, the pipeline applies the existing SCA-based structural constraint to make the local representation less trivial and more organized.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{AT\_regularization=SCA\_new}
+        \item Fixed: \texttt{AT\_regularization\_strength=0.35}
+        \item Fixed: \texttt{ssim\_threshold=0.45}
+    \end{itemize}
+    \textbf{Why these were kept fixed}
+    \begin{itemize}
+        \item They define the shared structural defense backbone already used in the project.
+        \item I did not search them because that would mix two defense families in one sweep.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item Cleaner and less directly invertible local features before the new slot-based regularizer is applied.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{5}{Tokenization of Spatial Features}
+    \small
+    \begin{block}{What happens here}
+        The smashed feature map is reshaped from a 2D feature grid into a sequence of spatial tokens, which becomes the direct input to the slot-attention module.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Indirectly fixed by: 64x64 input, \texttt{cutlayer=4}, \texttt{noRELU\_C8S1}
+        \item Indirectly influenced by: \texttt{batch\_size}
+    \end{itemize}
+    \textbf{Why this matters}
+    \begin{itemize}
+        \item The new method does not treat smashed data as a single global vector.
+        \item It treats it as a set of spatial descriptors, so geometry must be preserved upstream.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item The model can represent face regions as structured tokens rather than as one undifferentiated point in feature space.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{6}{Slot Attention: Part Decomposition}
+    \small
+    \begin{block}{What happens here}
+        Slot Attention uses a fixed number of latent slots to compete for and summarize token groups, ideally turning the face into several structured part-level representations.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Searched: \texttt{attention\_num\_slots = 5 to 14}
+        \item Searched: \texttt{attention\_num\_iterations = 3 to 6}
+    \end{itemize}
+    \textbf{Why these were searched}
+    \begin{itemize}
+        \item More slots mean finer face-part decomposition.
+        \item More iterations mean better slot refinement, especially when regularization is strong.
+        \item Too few slots underfit; too many slots fragment information and can become unstable.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item Better structural abstraction of facial regions and less collapse into a single easily invertible representation.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{7}{Cross Attention: Slot-to-Token Context Reading}
+    \small
+    \begin{block}{What happens here}
+        After slots are formed, cross attention lets them read the original token sequence again, so each slot can refine itself using global context.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Searched: \texttt{attention\_num\_heads = 2 or 4}
+        \item Coupled with: \texttt{attention\_num\_slots}
+    \end{itemize}
+    \textbf{Why these values were used}
+    \begin{itemize}
+        \item The feature dimension is 8, so the head count must divide 8.
+        \item 2 and 4 are the most meaningful choices: enough relational capacity without making each head too narrow.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item More coherent interaction between local face parts and the full token layout.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{8}{Slot Variance Objective and Gaussian Noise}
+    \scriptsize
+    \begin{block}{What happens here}
+        The model predicts per-slot uncertainty to build a privacy-oriented robustness loss, while Gaussian perturbation is injected into smashed data.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{regularization=Gaussian\_kl}, \texttt{log\_entropy=1}
+        \item Searched: \texttt{regularization\_strength = 0.025 to 0.060}
+        \item Searched: \texttt{var\_threshold = 0.08 to 0.22}
+        \item Searched: \texttt{attention\_loss\_scale = 0.25 to 1.00}
+    \end{itemize}
+    \textbf{Why these were co-tuned}
+    \begin{itemize}
+        \item Noise strength affects both feature corruption and the variance threshold scale.
+        \item The threshold decides how hard the model pushes slots away from low-entropy collapse.
+        \item Attention loss scale sets the raw magnitude of the slot-based robustness term.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item Harder feature inversion, better privacy, and a tunable tradeoff against classification utility.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{9}{Gradient Fusion and Training Schedule}
+    \scriptsize
+    \begin{block}{What happens here}
+        Classification loss and slot-based robustness loss are not simply added once. The code caches the robustness gradient first, then injects it back into the encoder during optimization.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Searched: \texttt{lambd = 6 to 40}
+        \item Searched: \texttt{learning\_rate = 0.018 to 0.035}
+        \item Searched: \texttt{num\_epochs = 280 to 340}
+        \item Fixed: \texttt{local\_lr=-1} (same as global LR)
+        \item Searched: \texttt{attention\_warmup\_epochs = 6 to 18}
+    \end{itemize}
+    \textbf{Why these were changed}
+    \begin{itemize}
+        \item Higher \texttt{lambd} strengthens the encoder-side privacy gradient.
+        \item Lower LR is needed when lambda, noise, and attention scale become aggressive.
+        \item Longer schedules matter because the late low-LR phase is where privacy shaping becomes most effective.
+        \item Warmup delays the slot loss until the encoder learns stable identity features first.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item A smoother optimization path with less early collapse and stronger late-stage privacy shaping.
+    \end{itemize}
+\end{frame}
+
+\begin{frame}
+    \stepheader{10}{Attack Evaluation, Logging, and Run Organization}
+    \scriptsize
+    \begin{block}{What happens here}
+        Each configuration is trained, then attacked with the same MIA protocol, and finally logged into a per-run folder with a consolidated CSV summary.
+    \end{block}
+    \textbf{Parameters affecting this step}
+    \begin{itemize}
+        \item Fixed: \texttt{attack\_scheme=MIA}, \texttt{attack\_epochs=50}
+        \item Fixed: \texttt{test\_gan\_AE\_type=res\_normN8C64}
+        \item Fixed: \texttt{average\_time=1}, \texttt{--test\_best}
+    \end{itemize}
+    \textbf{Why these were fixed}
+    \begin{itemize}
+        \item The attack budget must stay constant across all 20 runs.
+        \item Logging must be complete enough to compare utility and privacy after the sweep finishes.
+    \end{itemize}
+    \textbf{Expected effect}
+    \begin{itemize}
+        \item Every run yields both utility metrics and privacy metrics, so the best Pareto point can be selected against the CEM baseline.
+    \end{itemize}
+
+    \vspace{0.15cm}
+    \textbf{Final message}
+    \begin{itemize}
+        \item The search is not random.
+        \item It targets three levers: \alert{structure quality}, \alert{privacy strength}, and \alert{optimization stability}.
+    \end{itemize}
+\end{frame}
+
+\end{document}
