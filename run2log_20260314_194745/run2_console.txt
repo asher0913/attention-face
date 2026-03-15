@@ -1,0 +1,18 @@
+Run folder: /Users/asher/Documents/attention-face/run2log_20260314_194745
+Console:    /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_console.txt
+Manifest:   /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_manifest.tsv
+Summary:    /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_summary.csv
+Python:     python3
+Total configured experiments: 20
+Running range: 999 to 998
+
+======================================================================
+run2.sh finished at 2026-03-14 19:47:45
+Selected experiments: 0
+Training successes:   0
+Attack successes:     0
+Failures:             0
+Run folder:            /Users/asher/Documents/attention-face/run2log_20260314_194745
+Master log:            /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_console.txt
+Manifest:              /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_manifest.tsv
+Summary CSV:           /Users/asher/Documents/attention-face/run2log_20260314_194745/run2_summary.csv

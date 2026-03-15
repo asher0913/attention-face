@@ -1,0 +1,1 @@
+exp_id	batch_size	learning_rate	num_epochs	noise	lambd	var_threshold	num_slots	num_heads	num_iterations	attention_scale	warmup	status
