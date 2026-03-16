@@ -61,6 +61,7 @@ parser.add_argument('--attention_num_iterations', default=3, type=int, help='slo
 parser.add_argument('--attention_loss_scale', default=0.25, type=float, help='scale factor for attention CEM loss')
 parser.add_argument('--attention_warmup_epochs', default=3, type=int, help='epochs to wait before applying attention CEM loss')
 parser.add_argument('--attention_bank_size', default=64, type=int, help='memory bank size per class for cross-sample CEM clustering')
+parser.add_argument('--attention_slot_dim', default=128, type=int, help='projection dimension for Slot Attention')
 
 args = parser.parse_args()
 
@@ -160,7 +161,8 @@ for date_0 in date_list:
                     gan_AE_type = args.gan_AE_type, bottleneck_option = args.bottleneck_option, gan_loss_type=args.gan_loss_type,
                     attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
                     attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
-                    attention_warmup_epochs=args.attention_warmup_epochs, attention_bank_size=args.attention_bank_size)
+                    attention_warmup_epochs=args.attention_warmup_epochs, attention_bank_size=args.attention_bank_size,
+                    attention_slot_dim=args.attention_slot_dim)
     if args.new_log_folder:
         new_folder_dir = mi.save_dir + '/{}_{}/'.format(args.regularization, args.regularization_strength)
         new_folder_dir = os.path.abspath(new_folder_dir)
@@ -192,10 +194,17 @@ for date_0 in date_list:
         print('the test model is:',args.num_epochs)
         resume_path = "./{}/{}/checkpoint_f_{}.tar".format(args.folder, date_0, args.num_epochs)
         if not os.path.isfile(resume_path) and args.test_best:
-            fallback_path = "./{}/{}/checkpoint_f_240.tar".format(args.folder, date_0)
-            if os.path.isfile(fallback_path):
-                print(f"best checkpoint missing, fallback to {fallback_path}")
-                resume_path = fallback_path
+            # Try common epoch checkpoints as fallback (descending order)
+            found_fallback = False
+            for fb_epoch in [args.num_epochs, 360, 300, 240, 200, 100]:
+                fallback_path = "./{}/{}/checkpoint_f_{}.tar".format(args.folder, date_0, fb_epoch)
+                if os.path.isfile(fallback_path):
+                    print(f"best checkpoint missing, fallback to {fallback_path}")
+                    resume_path = fallback_path
+                    found_fallback = True
+                    break
+            if not found_fallback:
+                print(f"WARNING: No checkpoint found for {date_0}, skipping")
         mi.resume(resume_path)
     else:
         print("resume orig scheme's checkpoint")

@@ -49,8 +49,9 @@ Architecture fixes vs original SCA:
   1. Loss direction: relu(log(var) - log(thr))  (matches CEM-main)
   2. Geometric variance: weighted squared distance, not neural-net predicted
   3. Cross-sample clustering via FeatureMemoryBank (not token-level)
-  4. Sample-level features: z_private → [B, 512] (not [B, 64, 8])
-  5. proj_down 512→slot_dim for efficient Slot Attention
+  4. Sample-level features: z_private.view(B,-1) → [B, 2048] for 64x64 FaceScrub
+  5. proj_down 2048→slot_dim (default 128) for tractable Slot Attention
+  6. Attack decoder fixed: input_dim=64 (was 48, matching 64x64 images)
 
 Files in this directory
   README.txt         This file
@@ -66,7 +67,7 @@ summary.csv columns
   var_thr              variance threshold multiplier  (threshold = var_thr × noise²)
   loss_scale           pre-backward scale on rob_loss
   slots                number of SlotAttention prototypes
-  heads                number of CrossAttention heads
+  slot_dim             projection dimension (2048 → slot_dim via proj_down)
   iters                SlotAttention GRU refinement iterations
   bank                 memory bank size per class
   warmup               epochs before CEM activates
@@ -110,39 +111,40 @@ LR=0.05
 
 # ── experiment table ──────────────────────────────────────────────────────────
 # Columns (space-separated, read by 'read -r'):
-#   EID  LAMBD  NOISE  VT  LS  SLOTS  ITERS  BANK  WARMUP  EPOCHS
+#   EID  LAMBD  NOISE  VT  LS  SLOTS  ITERS  BANK  SDIM  WARMUP  EPOCHS
 #
-# CrossAttention removed (unused output); HEADS column dropped.
-# Slot Attention operates in full 512-dim with detached centroids.
+# Feature dim = 2048 (FaceScrub 64x64, cutlayer=4, noRELU_C8S1, feature_size=16)
+# proj_down projects 2048 → SDIM for Slot Attention + CEM variance
+# Centroids detached; CrossAttention removed (output unused)
 #
 # Group A (01-03): CEM strength baseline — lambd sweep
 # Group B (04-06): noise + threshold push
 # Group C (07-09): bank size sweep
 # Group D (10-12): slot architecture (slots / iters)
-# Group E (13-15): warmup timing
+# Group E (13-15): slot_dim sweep
 # Group F (16-18): combined strong configs
 # Group G (19-20): aggressive SOTA push
 EXPERIMENTS=(
-  "exp01  16  0.05  0.15  1.0   8  3   64  3  300"
-  "exp02  24  0.05  0.15  1.0   8  3   64  3  300"
-  "exp03  32  0.05  0.15  1.0   8  3   64  3  300"
-  "exp04  24  0.06  0.20  1.0   8  3   64  3  300"
-  "exp05  32  0.08  0.20  0.8   8  3   64  3  300"
-  "exp06  24  0.10  0.25  1.0   8  3   64  3  300"
-  "exp07  24  0.05  0.15  1.0   8  3   32  3  300"
-  "exp08  24  0.05  0.15  1.0   8  3   64  3  300"
-  "exp09  24  0.05  0.15  1.0   8  3  128  3  300"
-  "exp10  24  0.05  0.15  1.0   4  3   64  3  300"
-  "exp11  24  0.05  0.15  1.0  12  5   64  3  300"
-  "exp12  32  0.05  0.15  1.0   8  5   64  3  300"
-  "exp13  24  0.06  0.20  1.0   8  3   64  1  300"
-  "exp14  24  0.06  0.20  1.0   8  3   64  3  300"
-  "exp15  24  0.06  0.20  1.0   8  3   64  5  300"
-  "exp16  32  0.08  0.20  1.0  12  5  128  3  300"
-  "exp17  40  0.06  0.25  0.8   8  4   64  3  300"
-  "exp18  28  0.07  0.20  1.0  10  4   96  3  300"
-  "exp19  48  0.08  0.20  1.0   8  5  128  3  360"
-  "exp20  40  0.06  0.25  1.2  12  4  128  5  360"
+  "exp01  16  0.05  0.15  1.0   8  3   64  128  3  300"
+  "exp02  24  0.05  0.15  1.0   8  3   64  128  3  300"
+  "exp03  32  0.05  0.15  1.0   8  3   64  128  3  300"
+  "exp04  24  0.06  0.20  1.0   8  3   64  128  3  300"
+  "exp05  32  0.08  0.20  0.8   8  3   64  128  3  300"
+  "exp06  24  0.10  0.25  1.0   8  3   64  128  3  300"
+  "exp07  24  0.05  0.15  1.0   8  3   32  128  3  300"
+  "exp08  24  0.05  0.15  1.0   8  3   64  128  3  300"
+  "exp09  24  0.05  0.15  1.0   8  3  128  128  3  300"
+  "exp10  24  0.05  0.15  1.0   4  3   64  128  3  300"
+  "exp11  24  0.05  0.15  1.0  12  5   64  128  3  300"
+  "exp12  32  0.05  0.15  1.0   8  5   64  128  3  300"
+  "exp13  24  0.06  0.20  1.0   8  3   64   64  3  300"
+  "exp14  24  0.06  0.20  1.0   8  3   64  128  3  300"
+  "exp15  24  0.06  0.20  1.0   8  3   64  256  3  300"
+  "exp16  32  0.08  0.20  1.0  12  5  128  128  3  300"
+  "exp17  40  0.06  0.25  0.8   8  4   64  128  3  300"
+  "exp18  28  0.07  0.20  1.0  10  4   96  128  3  300"
+  "exp19  48  0.08  0.20  1.0   8  5  128  128  3  360"
+  "exp20  40  0.06  0.25  1.2  12  4  128  256  5  360"
 )
 
 TOTAL=${#EXPERIMENTS[@]}
@@ -154,7 +156,7 @@ FAIL=0
 # ══════════════════════════════════════════════════════════════════════════════
 for ENTRY in "${EXPERIMENTS[@]}"; do
 
-    read -r EID LAMBD NOISE VT LS SLOTS ITERS BANK WARMUP EPOCHS <<< "${ENTRY}"
+    read -r EID LAMBD NOISE VT LS SLOTS ITERS BANK SDIM WARMUP EPOCHS <<< "${ENTRY}"
 
     EXP_LOG="${RUN_DIR}/${EID}.log"
     CFG="${RUN_DIR}/${EID}_config.txt"
@@ -164,7 +166,7 @@ for ENTRY in "${EXPERIMENTS[@]}"; do
 
     # Path used by main_MIA.py to save/load checkpoints
     FOLDER="saves/facescrub/${AT_REG}_cemfixed_lg${LOG_ENTROPY}_vt${VT}"
-    FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk${BANK}_wu${WARMUP}"
+    FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk${BANK}_sd${SDIM}_wu${WARMUP}"
     HEADS=4  # kept for argparse compatibility (CrossAttention removed, value unused)
 
     # ── write hyperparameter snapshot (CSV generator reads this later) ────────
@@ -175,6 +177,7 @@ noise=${NOISE}
 var_thr=${VT}
 loss_scale=${LS}
 slots=${SLOTS}
+slot_dim=${SDIM}
 iters=${ITERS}
 bank=${BANK}
 warmup=${WARMUP}
@@ -193,8 +196,8 @@ CFGEOF
         printf '   lambd=%-4s  noise=%-5s  var_thr=%-5s  loss_scale=%s\n' \
                "${LAMBD}" "${NOISE}" "${VT}" "${LS}"
         printf '   effective_strength=%-5s  threshold=%s\n' "${EFF}" "${THR}"
-        printf '   slots=%-3s  iters=%s  bank=%s  warmup=%s  epochs=%s\n' \
-               "${SLOTS}" "${ITERS}" "${BANK}" "${WARMUP}" "${EPOCHS}"
+        printf '   slots=%-3s  slot_dim=%s  iters=%s  bank=%s  warmup=%s  epochs=%s\n' \
+               "${SLOTS}" "${SDIM}" "${ITERS}" "${BANK}" "${WARMUP}" "${EPOCHS}"
         printf '   log: %s\n' "${EXP_LOG}"
         printf '%.0s=' {1..72}; printf '\n'
     } | tee -a "${EXP_LOG}" | tee -a "${MASTER_LOG}"
@@ -234,6 +237,7 @@ CFGEOF
         --attention_loss_scale="${LS}" \
         --attention_warmup_epochs="${WARMUP}" \
         --attention_bank_size="${BANK}" \
+        --attention_slot_dim="${SDIM}" \
         2>&1 | tee -a "${EXP_LOG}" | tee -a "${MASTER_LOG}"
     TRAIN_RC=${PIPESTATUS[0]}
 
@@ -279,6 +283,7 @@ CFGEOF
         --attention_loss_scale="${LS}" \
         --attention_warmup_epochs="${WARMUP}" \
         --attention_bank_size="${BANK}" \
+        --attention_slot_dim="${SDIM}" \
         --average_time=1 \
         --gan_AE_type="${TEST_AE}" \
         --test_best \
@@ -380,7 +385,7 @@ exp_ids = sorted(
 FIELDS = [
     'exp_id',
     'lambd', 'noise', 'var_thr', 'loss_scale',
-    'slots', 'iters', 'bank', 'warmup', 'epochs',
+    'slots', 'slot_dim', 'iters', 'bank', 'warmup', 'epochs',
     'effective_strength', 'threshold',
     'train_status', 'attack_status',
     'best_acc',
@@ -421,7 +426,7 @@ print(f"  SUMMARY  ({len(rows)} experiments)   →   {csv_path}")
 print('=' * W)
 print(
     f"{'ID':<7} {'eff':>5} {'noise':>5} {'vt':>5} "
-    f"{'sl':>4} {'it':>3} {'bk':>4} {'wu':>3} {'ep':>4} "
+    f"{'sl':>4} {'sd':>4} {'it':>3} {'bk':>4} {'wu':>3} {'ep':>4} "
     f"| {'acc':>7} "
     f"| {'tr_ssim':>8} {'tr_psnr':>7} "
     f"| {'in_ssim':>8} {'in_psnr':>7} "
@@ -436,6 +441,7 @@ for r in sorted(rows, key=_ssim_key):
         f" {r.get('noise','?'):>5}"
         f" {r.get('var_thr','?'):>5}"
         f" {r.get('slots','?'):>4}"
+        f" {r.get('slot_dim','?'):>4}"
         f" {r.get('iters','?'):>3}"
         f" {r.get('bank','?'):>4}"
         f" {r.get('warmup','?'):>3}"

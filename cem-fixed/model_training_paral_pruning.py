@@ -180,52 +180,66 @@ class FeatureMemoryBank:
 
 
 class SlotCrossAttentionCEM(nn.Module):
-    """Optimized Slot-CEM: differentiable KMeans replacement with detached centroids.
+    """Slot-CEM: differentiable soft-clustering replacement for KMeans CEM.
 
-    Key design principles (matching CEM-main philosophy):
-    1. Operates in FULL feature space (512-dim) — no projection bottleneck,
-       so CEM gradients cover all dimensions the attacker can exploit.
-    2. Centroids are DETACHED during variance computation — the only way to
-       reduce CEM loss is for the encoder to genuinely disperse features.
-       (Prevents attention from "chasing" features to fake low variance.)
-    3. Clusters SAMPLES across a class via FeatureMemoryBank — not tokens
-       within one sample.
-    4. Loss direction matches CEM-main: relu(log(var+g) - log(thr))
-    5. CrossAttention removed — its output (refined slots) was unused in the
-       loss; only Slot Attention's soft assignments matter for variance.
+    Key design (matching CEM-main, fixing all original bugs):
+    1. proj_down projects encoder output (e.g. 2048-dim) to slot_dim (e.g. 128)
+       for tractable Slot Attention. CEM gradients still reach all encoder dims
+       through the differentiable projection.
+    2. Centroids DETACHED — encoder must genuinely disperse features.
+    3. Clusters SAMPLES across a class via FeatureMemoryBank.
+    4. Loss direction: relu(log(var+g) - log(thr)) — penalizes HIGH variance.
     """
-    def __init__(self, feature_dim=512, num_slots=8, num_iterations=3,
-                 var_threshold=0.1, reg_strength=0.0, log_entropy=1,
-                 num_classes=530, bank_size=64):
+    def __init__(self, feature_dim=2048, slot_dim=128, num_slots=8,
+                 num_iterations=3, var_threshold=0.1, reg_strength=0.0,
+                 log_entropy=1, num_classes=530, bank_size=64):
         super().__init__()
         self.feature_dim = feature_dim
+        self.slot_dim = slot_dim
         self.var_threshold = var_threshold
         self.reg_strength = reg_strength
         self.log_entropy = log_entropy
         self.gamma = 0.01  # matches CEM-main
 
-        # Slot Attention operates directly in full feature space (no proj_down)
-        self.slot_attention = SlotAttention(feature_dim, num_slots, num_iterations)
+        # Project from full feature space to manageable slot_dim
+        self.proj_down = nn.Linear(feature_dim, slot_dim)
 
-        # Memory bank for cross-sample clustering (full 512-dim)
-        self.memory_bank = FeatureMemoryBank(num_classes, bank_size, feature_dim)
+        # Slot Attention operates in projected slot_dim space
+        self.slot_attention = SlotAttention(slot_dim, num_slots, num_iterations)
+
+        # Memory bank stores projected features (slot_dim)
+        self.memory_bank = FeatureMemoryBank(num_classes, bank_size, slot_dim)
+
+    def to(self, *args, **kwargs):
+        """Override to ensure FeatureMemoryBank (non-Module) moves with the model."""
+        result = super().to(*args, **kwargs)
+        # Infer target device from a parameter that just moved
+        try:
+            device = next(result.parameters()).device
+            result.memory_bank.to(device)
+        except StopIteration:
+            pass
+        return result
 
     def forward(self, z_flat, labels, unique_labels):
         """
         Args:
-            z_flat: [B, feature_dim] flattened encoder features (512-dim)
+            z_flat: [B, feature_dim] flattened encoder features
             labels: [B] class labels
             unique_labels: tensor of unique class IDs in this batch
         Returns:
             rob_loss: scalar CEM loss
-            intra_class_mse: scalar (for logging compatibility)
+            intra_class_mse: scalar (for logging)
         """
         device = z_flat.device
 
-        # Update memory bank with detached features
-        self.memory_bank.update(z_flat, labels)
+        # Project to slot_dim — gradient flows back through proj_down to encoder
+        z_proj = self.proj_down(z_flat)  # [B, slot_dim]
 
-        # Compute threshold (matching CEM-main formula)
+        # Update memory bank with detached projected features
+        self.memory_bank.update(z_proj, labels)
+
+        # Threshold (matching CEM-main formula)
         strength = self.reg_strength if self.reg_strength > 0 else 1.0
         threshold = self.var_threshold * (strength ** 2) + self.gamma
 
@@ -239,40 +253,35 @@ class SlotCrossAttentionCEM(nn.Module):
         for label in unique_labels:
             label_val = label.item()
             mask = (labels == label)
-            batch_feats = z_flat[mask]  # [n_batch, D] — HAS gradient
+            batch_feats = z_proj[mask]  # [n_batch, slot_dim] — HAS gradient
 
-            # Get stored features from memory bank (NO gradient, detached)
+            # Bank features (NO gradient, detached)
             bank_feats = self.memory_bank.get_class_features(label_val)
 
             if bank_feats is not None and bank_feats.size(0) > 0:
-                all_feats = torch.cat([batch_feats, bank_feats.to(device)], dim=0)
+                all_feats = torch.cat([batch_feats, bank_feats], dim=0)
             else:
                 all_feats = batch_feats
 
             if all_feats.size(0) < 2:
-                continue  # need at least 2 samples to compute meaningful variance
+                continue
 
-            # Run Slot Attention on per-class sample collection: [1, N_samples, D]
-            feats_input = all_feats.unsqueeze(0)
-            slots, attn_weights = self.slot_attention(feats_input)  # attn: [1, N, S]
+            feats_input = all_feats.unsqueeze(0)  # [1, N, slot_dim]
+            slots, attn_weights = self.slot_attention(feats_input)
 
-            # --- Geometric variance with DETACHED centroids ---
-            # Normalize attention: per-slot soft assignment over samples
-            attn_sum = attn_weights.sum(dim=1, keepdim=True) + 1e-8  # [1, 1, S]
+            # Normalize attention: per-slot soft assignment
+            attn_sum = attn_weights.sum(dim=1, keepdim=True) + 1e-8
             attn_norm = attn_weights / attn_sum  # [1, N, S]
 
-            # Weighted centroids per slot — DETACHED so gradient cannot flow
-            # through centroid movement (forces encoder to do the work)
-            centroids = torch.einsum('bns,bnd->bsd', attn_norm, feats_input).detach()  # [1, S, D]
+            # Weighted centroids — DETACHED
+            centroids = torch.einsum('bns,bnd->bsd', attn_norm, feats_input).detach()
 
-            # Weighted squared distance: var[s] = sum_n w[n,s] * ||feat[n] - centroid[s]||^2
-            diff = feats_input.unsqueeze(2) - centroids.unsqueeze(1)  # [1, N, S, D]
+            # Geometric variance
+            diff = feats_input.unsqueeze(2) - centroids.unsqueeze(1)  # [1,N,S,D]
             sq_diff = diff ** 2
-            # Per-slot variance (mean over feature dims): [1, S]
-            var_per_slot = torch.einsum('bns,bnsd->bs', attn_norm, sq_diff) / (self.feature_dim + 1e-8)
+            var_per_slot = torch.einsum('bns,bnsd->bs', attn_norm, sq_diff) / (self.slot_dim + 1e-8)
 
-            # --- CEM loss (matches CEM-main direction) ---
-            # relu(log(var + gamma) - log(threshold)) — penalizes HIGH variance
+            # CEM loss (matches CEM-main direction)
             per_slot_loss = F.relu(
                 torch.log(var_per_slot + self.gamma)
                 - torch.log(torch.tensor(threshold, device=device, dtype=z_flat.dtype))
@@ -401,7 +410,7 @@ class MIA_train: # main class for every thing
                  load_from_checkpoint=False, bottleneck_option="None", measure_option=False,
                  optimize_computation=1, decoder_sync=False, bhtsne_option=False, gan_loss_type="SSIM", attack_confidence_score=False,
                  ssim_threshold=0.0, var_threshold=0.1, attention_num_slots=8, attention_num_heads=4, attention_num_iterations=3,
-                 attention_loss_scale=0.25, attention_warmup_epochs=3, attention_bank_size=64, finetune_freeze_bn=False,
+                 attention_loss_scale=0.25, attention_warmup_epochs=3, attention_bank_size=64, attention_slot_dim=128, finetune_freeze_bn=False,
                  load_from_checkpoint_server=False, source_task="cifar100",
                  save_activation_tensor=False, save_more_checkpoints=False, dataset_portion=1.0, noniid=1.0):
         torch.manual_seed(random_seed)
@@ -597,6 +606,10 @@ class MIA_train: # main class for every thing
         self.attention_num_heads = attention_num_heads
         self.attention_num_iterations = attention_num_iterations
         self.attention_bank_size = attention_bank_size
+        self.attention_slot_dim = attention_slot_dim
+        self._cem_fail_count = 0   # cumulative RuntimeError failures in CEM
+        self._cem_nan_count = 0    # cumulative NaN/Inf failures in CEM
+        self._cem_fail_this_epoch = 0  # reset each epoch for per-epoch summary
 
 
         # client sampling: dividing datasets to actual number of clients, self.num_clients is fake num of clients for ease of simulation.
@@ -1256,7 +1269,7 @@ class MIA_train: # main class for every thing
             and self.current_epoch > self.attention_warmup_epochs
         )
 
-        # Flatten to sample-level features: [B, 512]
+        # Flatten to sample-level features: [B, feature_dim] (e.g. 2048 for FaceScrub 64x64)
         feats_flat = z_private.view(z_private.size(0), -1)
 
         # Eagerly create attention_cem on FIRST training step (not just post-warmup)
@@ -1265,6 +1278,7 @@ class MIA_train: # main class for every thing
             reg_strength = self.regularization_strength if self.regularization_strength > 0 else 1.0
             self.attention_cem = SlotCrossAttentionCEM(
                 feature_dim=feats_flat.size(-1),
+                slot_dim=self.attention_slot_dim,
                 num_slots=self.attention_num_slots,
                 num_iterations=self.attention_num_iterations,
                 var_threshold=self.var_threshold,
@@ -1272,7 +1286,7 @@ class MIA_train: # main class for every thing
                 log_entropy=self.log_entropy,
                 num_classes=self.num_class,
                 bank_size=self.attention_bank_size,
-            ).to(device)
+            ).to(device)  # .to() override also moves memory_bank to device
             if not self._attention_cem_registered:
                 base_group = self.optimizer.param_groups[0]
                 self.optimizer.add_param_group({
@@ -1282,11 +1296,14 @@ class MIA_train: # main class for every thing
                     'weight_decay': base_group.get('weight_decay', 0.0),
                 })
                 self._attention_cem_registered = True
+            self.logger.debug(f"Attention CEM created: feature_dim={feats_flat.size(-1)}, "
+                              f"slot_dim={self.attention_slot_dim}, device={device}")
 
         # Pre-warm memory bank during warmup (forward() also calls update, so skip here post-warmup)
         if self.attention_cem is not None and not use_attention:
             with torch.no_grad():
-                self.attention_cem.memory_bank.update(feats_flat, label_private)
+                z_proj_warmup = self.attention_cem.proj_down(feats_flat)
+                self.attention_cem.memory_bank.update(z_proj_warmup, label_private)
 
         if use_attention:
             if torch.isnan(feats_flat).any() or torch.isinf(feats_flat).any():
@@ -1302,17 +1319,39 @@ class MIA_train: # main class for every thing
                 self.attention_cem.train()
                 try:
                     rob_loss, intra_class_mse = self.attention_cem(feats_flat, label_private, unique_labels)
-                except Exception as e:
-                    print(f"Error in attention CEM calculation: {e}")
-                    rob_loss = torch.zeros((), device=device)
+                except RuntimeError as e:
+                    import traceback
+                    self._cem_fail_count += 1
+                    self._cem_fail_this_epoch += 1
+                    tb_str = traceback.format_exc()
+                    # Always log full traceback at debug level
+                    self.logger.debug(f"CEM RuntimeError #{self._cem_fail_count}: {e}\n{tb_str}")
+                    # Prominent WARNING on first failure and every 50 thereafter
+                    if self._cem_fail_count == 1 or self._cem_fail_count % 50 == 0:
+                        self.logger.warning(
+                            "\n" + "=" * 70 + "\n"
+                            f"  *** CEM FAILURE #{self._cem_fail_count} ***  epoch={self.current_epoch}\n"
+                            f"  RuntimeError: {e}\n"
+                            f"  rob_loss has been set to 0 — CEM defense IS NOT ACTIVE this step!\n"
+                            f"  Check debug log for full traceback.\n"
+                            + "=" * 70
+                        )
+                    rob_loss = torch.zeros((), device=device, requires_grad=False)
                     intra_class_mse = torch.zeros((), device=device)
                 else:
                     rob_loss = rob_loss * self.attention_loss_scale
                     if torch.isnan(rob_loss) or torch.isinf(rob_loss):
-                        print("Warning: NaN/Inf in rob_loss, setting to 0")
+                        self._cem_nan_count += 1
+                        self._cem_fail_this_epoch += 1
+                        if self._cem_nan_count == 1 or self._cem_nan_count % 50 == 0:
+                            self.logger.warning(
+                                "\n" + "=" * 70 + "\n"
+                                f"  *** CEM NaN/Inf in rob_loss #{self._cem_nan_count} ***  epoch={self.current_epoch}\n"
+                                f"  rob_loss has been set to 0 — CEM defense IS NOT ACTIVE this step!\n"
+                                + "=" * 70
+                            )
                         rob_loss = torch.zeros((), device=device)
                     if torch.isnan(intra_class_mse) or torch.isinf(intra_class_mse):
-                        print("Warning: NaN/Inf in intra_class_mse, setting to 0")
                         intra_class_mse = torch.zeros((), device=device)
         else:
             rob_loss = torch.zeros((), device=device)
@@ -1983,6 +2022,7 @@ class MIA_train: # main class for every thing
                     random_ini_centers = False
                 train_loss_list=[]
                 f_loss_list= []
+                self._cem_fail_this_epoch = 0  # reset per-epoch counter
                 # 重新初始化各客户端迭代器，避免沿用上一轮末尾位置
                 client_iterator_list = []
                 for _cid in range(self.num_client):
@@ -2097,6 +2137,18 @@ class MIA_train: # main class for every thing
                 
                 # if epoch ==150 or epoch ==170:
                 # self.lambd = lambd_end + 0.5 * (lambd_start - lambd_end) * (1 + np.cos(np.pi * epoch / self.n_epochs))
+                # Per-epoch CEM failure summary
+                total_cem_fails = self._cem_fail_count + self._cem_nan_count
+                if self._cem_fail_this_epoch > 0:
+                    self.logger.warning(
+                        "\n" + "=" * 70 + "\n"
+                        f"  *** CEM EPOCH {epoch} SUMMARY: {self._cem_fail_this_epoch} step(s) failed ***\n"
+                        f"  Cumulative failures: RuntimeError={self._cem_fail_count}, NaN/Inf={self._cem_nan_count} (total={total_cem_fails})\n"
+                        f"  CEM defense was INACTIVE for these steps — check logs!\n"
+                        + "=" * 70
+                    )
+                else:
+                    self.logger.debug(f"CEM epoch {epoch} OK — 0 failures this epoch (cumulative total={total_cem_fails})")
                 if (self.train_scheduler.get_last_lr()[0])<0.00041: #strat to enhance rob when lr is small and acc is high
                     print('lambd value is:', self.lambd, 'learning rate is:', self.train_scheduler.get_last_lr()[0] )
                 else:
@@ -2502,7 +2554,7 @@ class MIA_train: # main class for every thing
                 val_loader, val_train_loader, val_test_loader = get_cifar100_testloader(batch_size=attack_batchsize, num_workers=4, shuffle=True)
             elif self.dataset == "facescrub":
                 input_nc=8
-                input_dim=48
+                input_dim=64  # 64x64 images (was 48, but datasets_torch loads at 64x64)
                 _, val_loader,train_single_loader,val_train_loader,val_test_loader = get_facescrub_bothloader(batch_size=attack_batchsize, num_workers=4, shuffle=False)
             elif self.dataset == "tinyimagenet":
                 _, val_loader,train_single_loader,val_train_loader,val_test_loader  = get_tinyimagenet_bothloader(batch_size=attack_batchsize, num_workers=4, shuffle=False)

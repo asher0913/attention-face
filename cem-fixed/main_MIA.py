@@ -49,6 +49,7 @@ parser.add_argument('--attention_num_iterations', default=3, type=int, help='slo
 parser.add_argument('--attention_loss_scale', default=0.25, type=float, help='scale factor for attention CEM loss')
 parser.add_argument('--attention_warmup_epochs', default=3, type=int, help='epochs to wait before applying attention CEM loss')
 parser.add_argument('--attention_bank_size', default=64, type=int, help='memory bank size per class for cross-sample CEM clustering')
+parser.add_argument('--attention_slot_dim', default=128, type=int, help='projection dimension for Slot Attention (projects from feature_dim to this)')
 
 #training dataset setting ()
 parser.add_argument('--load_from_checkpoint', action='store_true', default=False, help='if True, we load_from_checkpoint')
@@ -81,6 +82,7 @@ mi = model_training_paral_pruning.MIA_train(args.arch, cutting_layer, batch_size
                  attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
                  attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
                  attention_warmup_epochs=args.attention_warmup_epochs, attention_bank_size=args.attention_bank_size,
+                 attention_slot_dim=args.attention_slot_dim,
                  source_task = args.transfer_source_task, load_from_checkpoint_server = args.load_from_checkpoint_server, save_more_checkpoints = args.save_more_checkpoints,
                  dataset_portion = args.dataset_portion, noniid = args.noniid, client_sample_ratio = args.client_sample_ratio)
 mi.logger.debug(str(args))
