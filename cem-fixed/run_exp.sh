@@ -18,6 +18,7 @@ export CUDA_VISIBLE_DEVICES="${GPU_ID}"   # set once; all python calls inherit i
 export PYTHONUNBUFFERED=1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"  # ensure all relative paths resolve correctly
 
 # ── verify Python 3 (conda env must already be active) ───────────────────────
 if ! python -c "import sys; assert sys.version_info[0] >= 3" 2>/dev/null; then

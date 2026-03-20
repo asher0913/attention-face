@@ -823,7 +823,7 @@ class MIA_train: # main class for every thing
             if self.gan_AE_type == "custom":
                 self.local_AE_list.append(
                     architectures.custom_AE(input_nc=self.feature_size[1], output_nc=3, input_dim=self.feature_size[2],
-                                            output_dim=32, activation=self.gan_AE_activation))
+                                            output_dim=self.recons_dim, activation=self.gan_AE_activation))
                 # print('this is custom')
                 # raise LinAlgError
             elif "conv_normN" in self.gan_AE_type:
@@ -1339,6 +1339,10 @@ class MIA_train: # main class for every thing
                     rob_loss = torch.zeros((), device=device, requires_grad=False)
                     intra_class_mse = torch.zeros((), device=device)
                 else:
+                    if not isinstance(rob_loss, torch.Tensor):
+                        rob_loss = torch.tensor(rob_loss, device=device, dtype=torch.float32)
+                    if not isinstance(intra_class_mse, torch.Tensor):
+                        intra_class_mse = torch.tensor(intra_class_mse, device=device, dtype=torch.float32)
                     rob_loss = rob_loss * self.attention_loss_scale
                     if torch.isnan(rob_loss) or torch.isinf(rob_loss):
                         self._cem_nan_count += 1
@@ -2731,7 +2735,7 @@ class MIA_train: # main class for every thing
                 print("create a second decoder")
                 if self.gan_AE_type == "custom":
                     decoder2 = architectures.custom_AE(input_nc=input_nc, output_nc=3, input_dim=input_dim,
-                                                       output_dim=32, activation=self.gan_AE_activation).cuda()
+                                                       output_dim=self.recons_dim, activation=self.gan_AE_activation).cuda()
                     
                 elif "conv_normN" in self.gan_AE_type:
                     try:
@@ -2971,31 +2975,9 @@ class MIA_train: # main class for every thing
                 self.writer.add_scalar('decoder_loss/val', val_loss.item(), len(testloader) * epoch + i)
                 self.writer.add_scalar('decoder_loss/val_loss/reconstruction', reconstruction_loss.item(),
                                        len(testloader) * epoch + i)
-            if epoch ==49:
-                self.save_dir = "new_saves/cifar10/None_infocons_sgm_lg1_thre0.125/pretrain_False_lambd_0_noise_0.01_epoch_240_bottleneck_noRELU_C8S1_log_1_ATstrength_0.3_lr_0.05_varthres_0.125/"
-                self.resume(model_path_f=None)
-                for i, (rec_inputs, targets) in enumerate(zip(rec_inputs_list, targets_list)):
-                    pred = self.model.local_list[0](rec_inputs.cuda())
-                    with torch.no_grad():
-                        pred = self.f_tail(pred)
-                        # if "Gaussian" in self.regularization_option:
-                        #     sigma = self.regularization_strength
-                        #     noise = sigma * torch.randn_like(pred).cuda()
-                        #     pred += noise
-                        if "mobilenetv2" in self.arch:
-                            pred = F.avg_pool2d(pred, 4)
-                            pred = pred.view(pred.size(0), -1)
-                            pred = self.classifier(pred)
-                        elif self.arch == "resnet20" or self.arch == "resnet32":
-                            pred = F.avg_pool2d(pred, 8)
-                            pred = pred.view(pred.size(0), -1)
-                            pred = self.classifier(pred)
-                        else:
-                            pred = self._flatten_for_classifier(pred)
-                            pred = self.classifier(pred)
-                    prec1 = accuracy(pred.data.cpu(), targets.cpu())[
-                    0] 
-                    top1.update(prec1.item(), input.size(0))
+            # [DEBUG BLOCK REMOVED] was: epoch==49 hardcoded cifar10 path override
+            # This was leftover debug code that would crash FaceScrub runs by
+            # overwriting self.save_dir with a non-existent CIFAR10 path.
             print('the pred acc is:',top1.avg)
             for name, param in decoder.named_parameters():
                 self.writer.add_histogram("decoder_params/{}".format(name), param.clone().cpu().data.numpy(), epoch)
