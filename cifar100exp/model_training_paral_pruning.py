@@ -2695,7 +2695,7 @@ class MIA_train: # main class for every thing
                     feature_dim=8
                 print((self.sample_image.shape[-1]/32),self.feature_size)
                 decoder = architectures.res_normN_AE(N = N, internal_nc = internal_C, input_nc=self.feature_size[1], output_nc=3,
-                                                         input_dim=8*(self.sample_image.shape[-1]/32), output_dim=self.sample_image.shape[-1],
+                                                         input_dim=self.feature_size[2], output_dim=self.sample_image.shape[-1],
                                                          activation=self.gan_AE_activation).cuda()
             
             else:
