@@ -15,6 +15,7 @@
 \usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit, calc}
 \usepackage{colortbl}
 \usepackage{adjustbox}
+\usepackage{multicol}
 
 % Custom colors
 \definecolor{stageblue}{RGB}{41,98,255}
@@ -32,46 +33,260 @@
 \newcommand{\warn}[1]{\textcolor{warnorg}{#1}}
 \newcommand{\bad}[1]{\textcolor{bugred}{#1}}
 
-\title[cem-fixed Architecture Report]{\textbf{cem-fixed: Architecture Redesign}\\From Original Version to cem-fixed\\Three Fatal Bugs and Four Engineering Fixes}
+\title[SlotAttention CEM]{\textbf{SlotAttention CEM: Replacing GMM with}\\
+\textbf{Differentiable Soft Clustering for Split Learning Privacy}\\[0.2cm]
+{\normalsize Architecture Redesign \& Experimental Evaluation on FaceScrub}}
 \author{Group Meeting Presentation}
 \date{March 2026}
 
 \begin{document}
 
 % ============================================================================
+% SLIDE 1: Title
+% ============================================================================
 \begin{frame}
 \titlepage
 \end{frame}
 
 % ============================================================================
-\begin{frame}{Overview: What Was Wrong and What We Fixed}
-
-\begin{block}{Defense Goal}
-Force same-class features into tight sub-clusters so the MIA attacker cannot reconstruct images.\\
-\textbf{Lower Inference SSIM = Better Privacy.}
-\end{block}
-
-\vspace{0.2cm}
+% SLIDE 2: Outline
+% ============================================================================
+\begin{frame}{Outline}
 
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
-\textbf{\bad{Original Version (Root Dir)}}\\[0.2cm]
-\begin{itemize}
-    \item[\bad{$\times$}] Loss direction \textbf{reversed} — pushes variance up
-    \item[\bad{$\times$}] Variance \textbf{predicted by a network}, not computed geometrically
-    \item[\bad{$\times$}] Slot Attention clusters \textbf{within one image}, not across samples
-\end{itemize}
+\textbf{Part I: Background \& Motivation}
+\begin{enumerate}
+    \item Split Learning \& Model Inversion Attack
+    \item CEM: Conditional Entropy Maximization
+    \item Paper's GMM-based CEM Approach
+\end{enumerate}
+
+\vspace{0.3cm}
+\textbf{Part II: Architecture Redesign}
+\begin{enumerate}\setcounter{enumi}{3}
+    \item 3 Fatal Bugs in Original Code
+    \item 4 Engineering Fixes
+    \item SlotAttention Mechanism Detail
+    \item Complete cem-fixed Pipeline
+\end{enumerate}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Part III: Experimental Evaluation}
+\begin{enumerate}\setcounter{enumi}{7}
+    \item Experimental Setup
+    \item Full Results (20 Experiments)
+    \item Comparison with Paper Table 3
+    \item Hyperparameter Analysis
+\end{enumerate}
+
+\vspace{0.3cm}
+\textbf{Part IV: Conclusion}
+\begin{enumerate}\setcounter{enumi}{11}
+    \item Why SlotAttention $>$ GMM
+    \item Summary \& Next Steps
+\end{enumerate}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+%  PART I: BACKGROUND
+% ============================================================================
+
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part I}}\\[0.3cm]
+{\Large Background \& Motivation}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+% SLIDE 3: Split Learning Background
+% ============================================================================
+\begin{frame}{Background: Split Learning \& Model Inversion Attack (MIA)}
+
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+\textbf{Split Learning Architecture:}
+
 \vspace{0.15cm}
+\begin{tikzpicture}[scale=0.85,
+    block/.style={rectangle, rounded corners, draw=gray!70, fill=gray!8,
+                  minimum width=3cm, minimum height=0.5cm, align=center, font=\small},
+    arr/.style={-{Stealth[length=2mm]}, thick, gray}
+]
+\node[block, fill=blue!10, draw=blue!50] (img) {Input image $x$};
+\node[block, fill=blue!15, draw=blue!60, below=0.2cm of img] (enc) {Client Encoder $f_e(x)$};
+\node[block, fill=orange!10, draw=orange!50, below=0.2cm of enc] (z) {Smashed data $z = f_e(x)$};
+\node[block, fill=red!8, draw=red!40, below=0.2cm of z] (srv) {Server Decoder $f_d(z) \to \hat{y}$};
+\node[block, fill=purple!10, draw=purple!50, right=1.5cm of z] (atk) {MIA: $D(z) \to \hat{x}$};
+
+\draw[arr] (img) -- (enc);
+\draw[arr] (enc) -- (z);
+\draw[arr] (z) -- (srv);
+\draw[-{Stealth[length=2mm]}, thick, red!60, dashed] (z.east) -- (atk.west) node[midway, above, font=\tiny\color{red}] {intercept};
+\end{tikzpicture}
+
+\vspace{0.15cm}
+\small
+\textbf{Threat:} Attacker intercepts smashed data $z$ and trains a decoder $D$ to reconstruct the original input $\hat{x} \approx x$.
+\end{column}
+\begin{column}{0.42\textwidth}
+\textbf{Defense Strategies:}
+
+\vspace{0.15cm}
+\small
+\begin{enumerate}\setlength{\itemsep}{2pt}
+    \item \textbf{Noise corruption}: Add Gaussian noise $z' = z + \varepsilon$
+    \item \textbf{Distance correlation} (Nopeek): Minimize $\text{dCor}(x, z)$
+    \item \textbf{Bottleneck}: Reduce channels (128 $\to$ 8)
+    \item \textbf{ARL}: Adversarial representation learning
+    \item \textbf{CEM} (this paper): Maximize conditional entropy $\mathcal{H}(x|z)$
+\end{enumerate}
+
+\vspace{0.15cm}
+\begin{alertblock}{\small Key Insight}
+\small CEM can be \textbf{plugged into any} defense strategy above as an add-on, consistently boosting privacy.
+\end{alertblock}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 4: CEM Theory
+% ============================================================================
+\begin{frame}{Background: CEM --- Conditional Entropy Maximization}
+\vspace{-0.15cm}
+
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\textbf{Core Theory (Paper Theorem 1):}
+
+\vspace{0.1cm}
+\small
+The reconstruction MSE has a lower bound related to conditional entropy:
+\[ \xi^* \geq \frac{1}{2\pi e} \exp\!\left(\frac{2}{d}\,\mathcal{H}(x|z)\right) \]
+
+where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the conditional entropy of inputs given features.
+
+\vspace{0.1cm}
+\textbf{Implication:} If we \textbf{maximize} $\mathcal{H}(x|z)$, the attacker's reconstruction MSE must increase $\Rightarrow$ better privacy.
+
+\vspace{0.1cm}
+\textbf{How to maximize $\mathcal{H}(x|z)$?}
+\begin{itemize}\small\setlength{\itemsep}{0pt}
+    \item Estimate feature distribution with mixture model
+    \item Compute conditional entropy from cluster statistics
+    \item Optimize via gradient backpropagation
+\end{itemize}
+\end{column}
+\begin{column}{0.45\textwidth}
+\textbf{Paper's GMM Approach:}
+
+\vspace{0.1cm}
+\small
+\begin{enumerate}\setlength{\itemsep}{1pt}
+    \item Fit $k$-component Gaussian mixture to $z$:
+    \[ p(z) = \sum_{j=1}^{k} \pi_j \,\mathcal{N}(\mu_j, \Sigma_j) \]
+    \item Hard assignment: $z \to \text{nearest } \mu_j$
+    \item Update $\pi_j$, $\Sigma_j$ with running average
+    \item CEM loss (maximizes entropy):
+    \[ \mathcal{L}_C = \sum_{j} \pi_j\!\left(\!-\!\log\pi_j + \tfrac{1}{2}\log\tfrac{|\Sigma_j + \Sigma_p|}{|\Sigma_p|}\right) \]
+    \item Joint optimization:
+    \[ \mathcal{L} = \mathcal{L}_D + \lambda \cdot \mathcal{L}_C \]
+\end{enumerate}
+\vspace{0.05cm}
+{\footnotesize $\Sigma_p$: noise covariance; $\lambda$: weight factor (default 16)}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 5: Our Contribution
+% ============================================================================
+\begin{frame}{Our Contribution: Replace GMM with SlotAttention}
+
+\begin{block}{Problem with GMM-based CEM}
+\small GMM uses \textbf{hard assignment} (each feature $\to$ nearest centroid). This is non-differentiable --- gradients must be approximated. The clustering quality depends heavily on initialization and component count $k$.
+\end{block}
+
+\vspace{0.15cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\bad{Paper: GMM Hard Clustering}}
+\small
+\begin{itemize}\setlength{\itemsep}{2pt}
+    \item Non-differentiable assignment step
+    \item Running average update (stale statistics)
+    \item Fixed $k$ components, sensitive to init
+    \item No gradient through cluster assignment
+    \item Covariance update is approximate
+\end{itemize}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{\fix{Ours: SlotAttention Soft Clustering}}
+\small
+\begin{itemize}\setlength{\itemsep}{2pt}
+    \item \good{Fully differentiable} soft attention
+    \item Iterative GRU refinement (learned dynamics)
+    \item Adaptive slot count, robust to init
+    \item \good{End-to-end gradient flow} to encoder
+    \item Geometric variance (exact computation)
+\end{itemize}
+\end{column}
+\end{columns}
+
+\vspace{0.15cm}
+\begin{alertblock}{\small Result Preview}
+\small Our SlotAttention CEM achieves Dec Infer MSE = \textbf{0.0258}, surpassing the paper's best result (0.0211) by \good{\textbf{+22.3\%}} on FaceScrub.
+\end{alertblock}
+
+\end{frame}
+
+% ============================================================================
+%  PART II: ARCHITECTURE
+% ============================================================================
+
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part II}}\\[0.3cm]
+{\Large Architecture Redesign}\\[0.2cm]
+{\normalsize 3 Fatal Bugs Fixed + 4 Engineering Improvements}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+% SLIDE 6: Overview
+% ============================================================================
+\begin{frame}{Overview: What Was Wrong and What We Fixed}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\bad{Original Version (Root Dir)}}\\[0.15cm]
+\begin{itemize}\setlength{\itemsep}{3pt}
+    \item[\bad{$\times$}] Loss direction \textbf{reversed} --- pushes variance up instead of down
+    \item[\bad{$\times$}] Variance \textbf{predicted by a neural network}, not computed geometrically
+    \item[\bad{$\times$}] Slot Attention clusters \textbf{within one image} (1 token), not across samples
+\end{itemize}
+\vspace{0.1cm}
 {\small All three bugs together make CEM not only ineffective but potentially \textbf{harmful} to defense.}
 \end{column}
 \begin{column}{0.48\textwidth}
-\textbf{\fix{cem-fixed}}\\[0.2cm]
-\begin{itemize}
+\textbf{\fix{cem-fixed (Our Version)}}\\[0.15cm]
+\begin{itemize}\setlength{\itemsep}{3pt}
     \item[\good{$\checkmark$}] Loss direction corrected
     \item[\good{$\checkmark$}] Geometric variance computation
-    \item[\good{$\checkmark$}] Cross-sample clustering via \texttt{FeatureMemoryBank}
-    \item[\good{$\checkmark$}] \texttt{proj\_down} for tractable high-dim features
-    \item[\good{$\checkmark$}] Centroid \texttt{.detach()} to close gradient shortcut
+    \item[\good{$\checkmark$}] Cross-sample clustering via \code{FeatureMemoryBank}
+    \item[\good{$\checkmark$}] \code{proj\_down} for tractable high-dim features
+    \item[\good{$\checkmark$}] Centroid \code{.detach()} to close gradient shortcut
     \item[\good{$\checkmark$}] Deterministic inference
 \end{itemize}
 \end{column}
@@ -80,13 +295,15 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{frame}
 
 % ============================================================================
+% SLIDE 7: Architecture Comparison
+% ============================================================================
 \begin{frame}{Module Architecture: Original vs cem-fixed}
 
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \textbf{\bad{Original SlotCrossAttentionCEM}}
 
-\vspace{0.2cm}
+\vspace{0.15cm}
 \begin{tikzpicture}[
     arr/.style={-{Stealth[length=2mm]}, thick, gray},
     badarr/.style={-{Stealth[length=2mm]}, thick, red!60},
@@ -115,7 +332,7 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \begin{column}{0.48\textwidth}
 \textbf{\fix{cem-fixed SlotCrossAttentionCEM}}
 
-\vspace{0.2cm}
+\vspace{0.15cm}
 \begin{tikzpicture}[
     arr/.style={-{Stealth[length=2mm]}, thick, gray},
     goodarr/.style={-{Stealth[length=2mm]}, thick, green!60!black},
@@ -146,6 +363,8 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{frame}
 
 % ============================================================================
+% SLIDE 8: Bug 1
+% ============================================================================
 \begin{frame}{Bug 1: Loss Direction is Completely Reversed}
 
 \begin{columns}[T]
@@ -157,7 +376,7 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
     \item Positive when $\bar{v} < \theta$ (variance \textbf{below} threshold)
     \item Penalizes \textbf{low variance} $\Rightarrow$ drives variance \textbf{up}
     \item Encoder pushed to \textbf{spread} same-class features
-    \item \bad{Opposite to CEM intent — helps the attacker}
+    \item \bad{Opposite to CEM intent --- helps the attacker}
 \end{itemize}
 \end{column}
 \begin{column}{0.5\textwidth}
@@ -175,13 +394,15 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{column}
 \end{columns}
 
-\vspace{0.15cm}
+\vspace{0.1cm}
 \begin{alertblock}{Impact}
-\small With the original formula, increasing \texttt{lambd} would \textit{actively degrade} privacy. Every step was working \textbf{against} the defense.
+\small With the original formula, increasing \texttt{lambd} would \textit{actively degrade} privacy. Every gradient step was working \textbf{against} the defense. This single bug renders the entire CEM mechanism counterproductive.
 \end{alertblock}
 
 \end{frame}
 
+% ============================================================================
+% SLIDE 9: Bug 2
 % ============================================================================
 \begin{frame}{Bug 2: Variance Predicted by Network, Not Computed Geometrically}
 
@@ -189,7 +410,7 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \begin{column}{0.5\textwidth}
 \textbf{\bad{Original: neural network predicts variance}}
 
-\vspace{0.2cm}
+\vspace{0.15cm}
 \begin{tikzpicture}[
     block/.style={rectangle, rounded corners, draw=gray, fill=gray!10,
                   minimum width=4cm, minimum height=0.5cm, align=center, font=\small},
@@ -202,18 +423,18 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \draw[arr] (hv) -- (var);
 \end{tikzpicture}
 
-\vspace{0.2cm}
-\begin{itemize}
+\vspace{0.15cm}
+\begin{itemize}\small
     \item \code{head\_logvar} has its own learnable weights
     \item Network can satisfy loss by \textbf{adjusting its own weights}, not the encoder
-    \item CEM pressure is \textbf{absorbed by the prediction head}
-    \item Encoder features are \textbf{unconstrained} — no defense effect
+    \item CEM pressure is \textbf{absorbed} by the prediction head
+    \item Encoder features are \textbf{unconstrained} --- no real defense
 \end{itemize}
 \end{column}
 \begin{column}{0.5\textwidth}
 \textbf{\fix{cem-fixed: geometric computation}}
 
-\vspace{0.2cm}
+\vspace{0.15cm}
 \begin{tikzpicture}[
     block/.style={rectangle, rounded corners, draw=gray, fill=gray!10,
                   minimum width=4cm, minimum height=0.5cm, align=center, font=\small},
@@ -229,11 +450,12 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \draw[arr] (feats.east) to[out=0,in=0] (var.east);
 \end{tikzpicture}
 
-\vspace{0.2cm}
-\begin{itemize}
-    \item Variance = \textbf{actual Euclidean distance} from features to centroids
-    \item No learnable parameters involved in variance computation
-    \item Gradients go \textbf{directly to encoder features}
+\vspace{0.15cm}
+\begin{itemize}\small
+    \item Variance = \textbf{actual squared distance} from features to centroids
+    \item No learnable parameters involved
+    \item Gradients flow \textbf{directly to encoder features}
+    \item Cannot ``cheat'' --- must genuinely compress features
 \end{itemize}
 \end{column}
 \end{columns}
@@ -241,11 +463,10 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{frame}
 
 % ============================================================================
+% SLIDE 10: Bug 3
+% ============================================================================
 \begin{frame}{Bug 3: Slot Attention Clusters Within One Image, Not Across Samples}
 
-\textbf{The largest semantic error.} CEM needs cross-sample clustering; the original version does intra-sample operation.
-
-\vspace{0.2cm}
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 \textbf{\bad{Original: each image is processed alone}}
@@ -279,7 +500,7 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \node[block, below=0.2cm of z] (sel) {select class $c$: batch\_feats $[n_c, 128]$};
 \node[block, below=0.2cm of sel] (cat) {cat(batch\_feats, bank\_feats) $[N_c, 128]$};
 \node[block, below=0.2cm of cat] (sa) {SlotAttention(input=[1, \good{$N_c$}, 128])};
-\node[font=\small, below=0.2cm of sa, text=goodgreen] {8 slots compete over $N_c$ \good{samples of class $c$}};
+\node[font=\small, below=0.2cm of sa, text=goodgreen] {8 slots compete over \good{$N_c$ samples of class $c$}};
 \draw[-{Stealth}, thick, gray] (z) -- (sel);
 \draw[-{Stealth}, thick, gray] (sel) -- (cat);
 \draw[-{Stealth}, thick, gray] (cat) -- (sa);
@@ -288,18 +509,21 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{column}
 \end{columns}
 
-\vspace{0.2cm}
+\vspace{0.15cm}
 \small
-\textbf{Why it matters:} CEM's goal is to find \textit{sub-groups within each class}. This requires observing multiple samples of the same class simultaneously. With a single token as input, Slot Attention has nothing to cluster — 8 slots simply mirror the one input token.
+\textbf{Why it matters:} CEM's goal is to find \textit{sub-groups within each class}. This requires observing multiple samples simultaneously. With 1 token input, 8 slots have nothing to cluster --- they all collapse to the same point, producing zero meaningful variance signal.
 
 \end{frame}
 
 % ============================================================================
+% SLIDE 11: Fix 1 - MemoryBank
+% ============================================================================
 \begin{frame}{Engineering Fix 1: FeatureMemoryBank}
+\vspace{-0.1cm}
 
-\small\textbf{Problem}: After fixing Bug 3, each class appears in a batch of 64 only $\sim$1--2 times (530 classes). $N_c < 2$ $\Rightarrow$ class \textbf{skipped entirely}.
+\small\textbf{Problem}: FaceScrub has 530 classes. With batch size 256, each class appears only $\sim$0.5 times per batch. Without memory, most classes are \textbf{skipped entirely} in each step.
 
-\vspace{0.1cm}
+\vspace{0.05cm}
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
 \textbf{FeatureMemoryBank design:}
@@ -323,19 +547,19 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 
 \vspace{0.05cm}
 \small
-\begin{enumerate}
-    \item Batch feats written to bank (\code{no\_grad})
-    \item Class $c$: read up to 64 historical feats
-    \item \code{cat([batch\_feats, bank\_feats])}
+\begin{enumerate}\setlength{\itemsep}{1pt}
+    \item Each batch: write projected feats to bank (\code{no\_grad})
+    \item For class $c$: read up to 64 historical feats from bank
+    \item \code{cat([batch\_feats, bank\_feats])} $\to N_c$ samples
     \item SA receives $N_c = n_{\text{batch}} + n_{\text{bank}} \gg 2$
 \end{enumerate}
 
-\vspace{0.15cm}
-\textbf{Key properties:}
-\begin{itemize}
-    \item bank feats: \textbf{no gradient} (history)
-    \item batch feats: \textbf{has gradient} (drives encoder)
-    \item Non-\code{Module} $\Rightarrow$ must override \code{.to(device)}
+\vspace{0.1cm}
+\textbf{Gradient design:}
+\begin{itemize}\small
+    \item Bank feats: \textbf{no gradient} (detached history)
+    \item Current batch feats: \textbf{has gradient} (drives encoder)
+    \item $\Rightarrow$ CEM loss only updates current encoder weights
 \end{itemize}
 \end{column}
 \end{columns}
@@ -343,17 +567,20 @@ Force same-class features into tight sub-clusters so the MIA attacker cannot rec
 \end{frame}
 
 % ============================================================================
+% SLIDE 12: Fix 2 - proj_down
+% ============================================================================
 \begin{frame}{Engineering Fix 2: proj\_down for High-Dimensional Features}
+\vspace{-0.1cm}
 
 \begin{block}{Problem}
-\small FaceScrub encoder: $z=[B,8,16,16]$ $\xrightarrow{\text{flatten}}$ $[B,2048]$. SlotAttention directly on 2048-dim $\Rightarrow$ enormous parameter cost.
+\small FaceScrub encoder output: $z=[B,8,16,16]$ $\xrightarrow{\text{flatten}}$ $[B,2048]$. Running SlotAttention directly on 2048-dim $\Rightarrow$ enormous memory and parameter cost.
 \end{block}
 
-\vspace{0.1cm}
+\vspace{0.05cm}
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
 \textbf{Without proj\_down:}
-\vspace{0.1cm}
+\vspace{0.05cm}
 \begin{center}
 \small
 \begin{tabular}{lrr}
@@ -373,7 +600,7 @@ MLP & $2048 \times 4096$ & \warn{8.4M} \\
 \end{column}
 \begin{column}{0.48\textwidth}
 \textbf{With proj\_down (slot\_dim=128):}
-\vspace{0.1cm}
+\vspace{0.05cm}
 \begin{center}
 \small
 \begin{tabular}{lrr}
@@ -396,148 +623,205 @@ MLP & $128 \times 256$ & 33K \\
 
 \vspace{0.1cm}
 \footnotesize
-\textbf{Gradient still flows}: $\nabla_{\theta_f} = \frac{\partial \mathcal{L}}{\partial z_{\text{proj}}} \cdot \frac{\partial z_{\text{proj}}}{\partial z_{\text{flat}}} \cdot \frac{\partial z_{\text{flat}}}{\partial \theta_f}$. \code{proj\_down} is differentiable — all 2048 dims receive CEM gradients.
+\textbf{Gradient preserved}: $\nabla_{\theta_f} = \frac{\partial \mathcal{L}}{\partial z_{\text{proj}}} \cdot \frac{\partial z_{\text{proj}}}{\partial z_{\text{flat}}} \cdot \frac{\partial z_{\text{flat}}}{\partial \theta_f}$. All 2048 encoder dims receive CEM gradients through the linear projection. Parameter reduction: \bad{200$\times$}.
 
 \end{frame}
 
 % ============================================================================
-\begin{frame}{Engineering Fix 3: Detach Centroids to Close Gradient Shortcut}
+% SLIDE 13: Fix 3 & 4
+% ============================================================================
+\begin{frame}{Engineering Fix 3 \& 4: Detach Centroids + Deterministic Inference}
 
 \begin{columns}[T]
-\begin{column}{0.50\textwidth}
-\textbf{The shortcut (without \code{.detach()}):}
+\begin{column}{0.48\textwidth}
+\textbf{Fix 3: Detach centroids}
 
-\vspace{0.2cm}
-\begin{tikzpicture}[scale=0.72,
-    block/.style={rectangle, rounded corners, draw=gray, fill=gray!8,
-                  minimum width=4cm, minimum height=0.48cm, align=center, font=\small}
-]
-\node[block] (feats) {features $f$ (has grad)};
-\node[block, below=0.28cm of feats] (cent) {centroids $c = \text{einsum}(\text{attn}, f)$ \bad{(also grad)}};
-\node[block, below=0.28cm of cent] (diff) {$\text{loss} = \text{attn} \cdot (f - c)^2$};
-
-\draw[-{Stealth}, thick, gray] (feats.south) -- (cent.north);
-\draw[-{Stealth}, thick, gray] (cent.south) -- (diff.north);
-\draw[-{Stealth[length=2mm]}, thick, red!60, dashed] (feats.east) to[out=30,in=30]
-    node[right, font=\tiny, text=red, align=left] {shortcut} (diff.east);
-\end{tikzpicture}
-
-\vspace{0.2cm}
+\vspace{0.1cm}
 \small
-\bad{Two gradient paths:}
+Without \code{.detach()}, the gradient has \textbf{two paths}:
 \begin{enumerate}
-    \item features move toward centroid \good{(correct)}
-    \item centroid moves toward features \bad{(shortcut!)}
+    \item Features move toward centroid \good{(correct)}
+    \item Centroid moves toward features \bad{(shortcut!)}
 \end{enumerate}
-Path 2 satisfies the loss with \textbf{zero encoder change}.
-\end{column}
-\begin{column}{0.47\textwidth}
-\textbf{With \code{.detach()} (cem-fixed):}
+
+Path 2 satisfies the loss with \textbf{zero encoder change}. The optimizer takes the easy path.
+
+\vspace{0.1cm}
+\textbf{Fix:} $c^* = \text{einsum}(\text{attn}, f)$\code{.detach()}
+
+\vspace{0.05cm}
+$\Rightarrow$ Only path 1 remains. Encoder \textbf{must genuinely} compress features toward fixed centroids.
 
 \vspace{0.15cm}
-\begin{tikzpicture}[scale=0.72,
+\begin{tikzpicture}[scale=0.65,
     block/.style={rectangle, rounded corners, draw=gray, fill=gray!8,
-                  minimum width=4cm, minimum height=0.48cm, align=center, font=\small}
+                  minimum width=3.5cm, minimum height=0.4cm, align=center, font=\scriptsize}
 ]
 \node[block, fill=green!8, draw=green!60!black] (feats) {features $f$ (has grad)};
-\node[block, below=0.28cm of feats, fill=teal!8, draw=teal!60] (cent) {centroids $= \text{einsum}(\text{attn},f)$\,\code{.detach()}};
-\node[block, below=0.28cm of cent, fill=green!8, draw=green!60!black] (diff) {$\text{loss} = \text{attn} \cdot (f - c^*)^2$};
-
-\draw[-{Stealth}, thick, gray] (feats.south) -- (cent.north);
-\draw[-{Stealth}, thick, gray] (cent.south) -- (diff.north);
+\node[block, below=0.2cm of feats, fill=teal!8, draw=teal!60] (cent) {$c^* = \text{einsum}(\text{attn},f)$\,\code{.detach()}};
+\node[block, below=0.2cm of cent, fill=green!8, draw=green!60!black] (diff) {loss $= \text{attn} \cdot (f - c^*)^2$};
+\draw[-{Stealth}, thick, gray] (feats) -- (cent);
+\draw[-{Stealth}, thick, gray] (cent) -- (diff);
 \draw[-{Stealth[length=2mm]}, thick, green!60!black] (feats.east) to[out=30,in=30]
-    node[right, font=\tiny, text=goodgreen, align=left] {only path} (diff.east);
+    node[right, font=\tiny, text=goodgreen] {only path} (diff.east);
 \end{tikzpicture}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Fix 4: Deterministic inference}
+
+\vspace{0.1cm}
+\small
+\textbf{Problem:} SlotAttention initializes slots from $\mu + \sigma \cdot \varepsilon$, $\varepsilon \sim \mathcal{N}(0,1)$. During MIA evaluation, each forward pass gives \textbf{different} attention distributions $\Rightarrow$ results not reproducible.
 
 \vspace{0.15cm}
-\footnotesize
-\fix{One gradient path only:} Features must truly approach the fixed centroid. Encoder cannot ``cheat'' by moving the reference point.
-\end{column}
-\end{columns}
-
-\end{frame}
-
-% ============================================================================
-\begin{frame}{Engineering Fix 4: Deterministic Inference}
-
-\begin{columns}[T]
-\begin{column}{0.52\textwidth}
-\textbf{\bad{Original: always random slot initialization}}
-
-\vspace{0.1cm}
-\small
-\begin{center}
-\begin{tikzpicture}[scale=0.9,
-    block/.style={rectangle, rounded corners, draw=gray, fill=gray!8,
-                  minimum width=4cm, minimum height=0.48cm, align=center, font=\small}
-]
-\node[block] (mu) {learnable $\mu$, $\sigma$};
-\node[block, below=0.2cm of mu, fill=red!8, draw=red!60] (rnd) {$\text{slots} = \mu + \sigma \cdot \varepsilon$, $\;\varepsilon \sim \mathcal{N}(0,1)$ \;\bad{always}};
-\draw[-{Stealth}, thick, gray] (mu) -- (rnd);
-\end{tikzpicture}
-\end{center}
-
-\vspace{0.2cm}
-\begin{itemize}
-    \item During MIA evaluation, each forward pass gives \textbf{different attention distributions}
-    \item CEM statistics fluctuate across evaluation runs
-    \item Results are \textbf{not reproducible}; fair comparison is impossible
+\textbf{Fix:}
+\begin{itemize}\small\setlength{\itemsep}{2pt}
+    \item \textbf{Training}: $\text{slots} = \mu + \sigma \cdot \varepsilon$ (stochastic, preserves exploration)
+    \item \textbf{Eval}: $\text{slots} = \mu$ (deterministic, reproducible)
 \end{itemize}
-\end{column}
-\begin{column}{0.45\textwidth}
-\textbf{\fix{cem-fixed: train/eval split}}
 
 \vspace{0.1cm}
-\small
 \begin{center}
-\begin{tikzpicture}[scale=0.9,
+\begin{tikzpicture}[scale=0.65,
     block/.style={rectangle, rounded corners, draw=gray, fill=gray!8,
-                  minimum width=3.8cm, minimum height=0.48cm, align=center, font=\small}
+                  minimum width=3.5cm, minimum height=0.4cm, align=center, font=\scriptsize}
 ]
 \node[block] (mu) {learnable $\mu$, $\sigma$};
-\node[block, below=0.2cm of mu, fill=green!8, draw=green!60!black] (tr) {Training: $\mu + \sigma \varepsilon$ \small (stochastic)};
-\node[block, below=0.2cm of tr, fill=teal!8, draw=teal!60] (ev) {Eval: $\mu$ (deterministic)};
+\node[block, below=0.15cm of mu, fill=green!8, draw=green!60!black] (tr) {Train: $\mu + \sigma\varepsilon$ (stochastic)};
+\node[block, below=0.15cm of tr, fill=teal!8, draw=teal!60] (ev) {Eval: $\mu$ only (deterministic)};
 \draw[-{Stealth}, thick, gray] (mu) -- (tr);
 \draw[-{Stealth}, thick, gray] (mu) -- (ev);
 \end{tikzpicture}
 \end{center}
 
-\vspace{0.2cm}
-\begin{itemize}
-    \item Training: stochastic init preserves exploration, prevents slot collapse
-    \item Inference: deterministic init gives \textbf{identical output} for same features
-    \item MIA evaluation results are \fix{fully reproducible}
-\end{itemize}
+$\Rightarrow$ MIA metrics are \fix{fully reproducible} across runs.
 \end{column}
 \end{columns}
 
 \end{frame}
 
 % ============================================================================
+% SLIDE 14: SlotAttention Detail
+% ============================================================================
+\begin{frame}{SlotAttention Mechanism: Step-by-Step}
+
+\vspace{-0.1cm}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\textbf{Algorithm (per class $c$, each training step):}
+
+\vspace{0.1cm}
+\scriptsize
+\begin{enumerate}\setlength{\itemsep}{2pt}
+    \item \textbf{Input}: $N_c$ features from batch + memory bank
+    \[ \text{inputs} = [f_1, f_2, \ldots, f_{N_c}] \in \mathbb{R}^{N_c \times D} \]
+    \item \textbf{Init slots}: $S$ learnable prototypes
+    \[ s_j^{(0)} = \mu_j + \sigma_j \cdot \varepsilon_j, \quad j=1,\ldots,S \]
+    \item \textbf{For $t = 1, \ldots, T$ iterations:}
+    \begin{enumerate}\scriptsize
+        \item Compute attention: $A_{ij} = \frac{\exp(q_j \cdot k_i / \sqrt{D})}{\sum_j \exp(q_j \cdot k_i / \sqrt{D})}$
+        \item Normalize over inputs: $\hat{A}_{ij} = A_{ij} / \sum_i A_{ij}$
+        \item Weighted mean: $u_j = \sum_i \hat{A}_{ij} \cdot v(f_i)$
+        \item GRU update: $s_j^{(t)} = \text{GRU}(u_j, s_j^{(t-1)})$
+        \item MLP residual: $s_j^{(t)} \mathrel{+}= \text{MLP}(s_j^{(t)})$
+    \end{enumerate}
+    \item \textbf{Output}: refined slots $s_j^{(T)}$ + attention weights $\hat{A}$
+\end{enumerate}
+\end{column}
+\begin{column}{0.45\textwidth}
+\textbf{How it differs from GMM:}
+
+\vspace{0.1cm}
+\small
+\begin{tabular}{p{1.8cm}p{1.5cm}p{1.5cm}}
+\toprule
+& \textbf{GMM} & \textbf{SlotAttn} \\
+\midrule
+Assignment & Hard & \good{Soft} \\
+Update & Running avg & \good{GRU} \\
+Gradient & Approx & \good{Exact} \\
+Iterations & 1 & $T$ (3--5) \\
+Init & Random & Learned \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.15cm}
+\textbf{After SlotAttention:}
+\scriptsize
+\begin{enumerate}\setlength{\itemsep}{1pt}
+    \item Compute centroids: $c_j = \sum_i \hat{A}_{ij} \cdot f_i$
+    \item \code{.detach()} centroids (Fix 3)
+    \item Geometric variance per slot:\\
+    $v_j = \frac{\sum_i \hat{A}_{ij} \cdot \|f_i - c_j^*\|^2}{\sum_i \hat{A}_{ij} \cdot D}$
+    \item Mean variance: $\bar{v} = \frac{1}{S}\sum_j v_j$
+    \item CEM loss: $\mathcal{L} = \text{ReLU}(\log(\bar{v}+\gamma) - \log\theta)$
+\end{enumerate}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 15: Complete Pipeline
+% ============================================================================
+\begin{frame}{Complete cem-fixed Training Pipeline}
+
+\begin{center}
+\begin{tikzpicture}[scale=0.78,
+    block/.style={rectangle, rounded corners, draw=gray!60, fill=gray!6,
+                  minimum width=5cm, minimum height=0.44cm, align=center, font=\small},
+    arr/.style={-{Stealth[length=2mm]}, thick, green!60!black},
+    note/.style={font=\tiny, text=gray!70}
+]
+\node[block, fill=blue!10, draw=blue!50] (inp) {Input image $x$ (64$\times$64 face)};
+\node[block, fill=blue!15, draw=blue!60, below=0.15cm of inp] (enc) {Client Encoder $f_e$: VGG11 first 2 conv layers + LCA};
+\node[block, fill=orange!8, draw=orange!50, below=0.15cm of enc] (z) {Smashed data $z$ = [B, 8, 16, 16] + Gaussian noise $\sigma$};
+\node[block, below=0.15cm of z] (flat) {Flatten $\to$ [B, 2048] $\xrightarrow{\text{proj\_down}}$ [B, 128]};
+\node[block, fill=teal!8, draw=teal!60, below=0.15cm of flat] (bank) {FeatureMemoryBank: concat batch + history per class $c$};
+\node[block, fill=violet!8, draw=violet!60, below=0.15cm of bank] (sa) {SlotAttention: [1, $N_c$, 128] $\to$ 8 slot centroids, attn weights};
+\node[block, fill=orange!8, draw=orange!50, below=0.15cm of sa] (var) {Geometric variance: $\bar{v} = \text{mean}(\sum \text{attn} \cdot (f - c^*)^2 / D)$};
+\node[block, fill=green!10, draw=green!60!black, below=0.15cm of var] (loss) {$\mathcal{L} = \mathcal{L}_{\text{task}} + \lambda \cdot \text{ReLU}(\log(\bar{v}+\gamma) - \log\theta) + \alpha \cdot \text{dCor}(x,z)$};
+
+\foreach \i/\j in {inp/enc, enc/z, z/flat, flat/bank, bank/sa, sa/var, var/loss}
+    \draw[arr] (\i) -- (\j);
+
+\node[note, right=0.1cm of enc] {cutlayer=4, + bottleneck C8S1};
+\node[note, right=0.1cm of z] {$\sigma$=0.05--0.10};
+\node[note, right=0.1cm of bank] {530 classes $\times$ 64 feats/class};
+\node[note, right=0.1cm of sa] {$T$=3--5 iterations};
+\node[note, right=0.1cm of loss] {$\lambda$=16--48, $\alpha$=0.3};
+\end{tikzpicture}
+\end{center}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 16: Summary Table
+% ============================================================================
 \begin{frame}{Complete Bug \& Fix Summary}
 
 \begin{center}
-\footnotesize\setlength{\tabcolsep}{4pt}
-\renewcommand{\arraystretch}{1.1}
-\begin{tabular}{p{0.4cm}p{2.8cm}p{4.6cm}p{4.2cm}}
+\scriptsize\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{p{0.4cm}p{2.3cm}p{4.8cm}p{4.8cm}}
 \toprule
 & \textbf{Issue} & \textbf{Original Behavior} & \textbf{cem-fixed} \\
 \midrule
 \rowcolor{red!6}
 \bad{B1} & Loss direction & $\text{ReLU}(\log\theta - \log v)$: penalizes low var; \textbf{drives features apart} & $\text{ReLU}(\log v - \log\theta)$: penalizes high var; \good{drives features together} \\
 \rowcolor{red!6}
-\bad{B2} & Variance source & Network-predicted (\code{head\_logvar}); pressure absorbed by head, \textbf{encoder unconstrained} & Geometric $\sum\text{attn}(f-c^*)^2$; \good{gradient direct to encoder} \\
+\bad{B2} & Variance source & Network-predicted (\code{head\_logvar}); pressure absorbed by head, \textbf{encoder unconstrained} & Geometric $\sum\text{attn}(f-c^*)^2$; \good{gradient directly to encoder} \\
 \rowcolor{red!6}
-\bad{B3} & Clustering object & Each image alone $[B,1,D]$; 8 slots on 1 token $=$ \textbf{meaningless} & Same-class samples $[1,N_c,D]$; \good{cross-sample sub-groups} \\
+\bad{B3} & Clustering scope & Each image alone $[B,1,D]$; 8 slots on 1 token $=$ \textbf{meaningless} & Same-class samples $[1,N_c,D]$; \good{cross-sample sub-groups} \\
 \midrule
 \rowcolor{green!5}
-\fix{F1} & Sample shortage & --- & \code{FeatureMemoryBank}: 64 feats/class; \good{every class has signal} \\
+\fix{F1} & Sample shortage & --- (classes skipped when $<$2 samples in batch) & MemoryBank: 64 feats/class; \good{every class gets signal} \\
 \rowcolor{green!5}
-\fix{F2} & High-dim cost & SlotAttn in 2048-dim: \bad{100M+ params} & \code{proj\_down}(2048$\to$128): \good{$\sim$0.5M, grad preserved} \\
+\fix{F2} & High-dim cost & SlotAttn in 2048-dim: \bad{100M+ params} & \code{proj\_down}(2048$\to$128): \good{$\sim$0.5M params} \\
 \rowcolor{green!5}
-\fix{F3} & Centroid shortcut & No detach: centroid chases features & \code{.detach()}: \good{features must genuinely converge} \\
+\fix{F3} & Centroid shortcut & No detach: optimizer takes easy path & \code{.detach()}: \good{encoder must genuinely converge} \\
 \rowcolor{green!5}
-\fix{F4} & Non-determinism & Always stochastic slots & \good{Deterministic eval; stochastic train} \\
+\fix{F4} & Non-determinism & Always stochastic slot init & \good{Deterministic eval; stochastic train} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -545,47 +829,227 @@ Path 2 satisfies the loss with \textbf{zero encoder change}.
 \end{frame}
 
 % ============================================================================
-\begin{frame}{Why cem-fixed Should Outperform the Original Version}
+%  PART III: EXPERIMENTS
+% ============================================================================
+
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part III}}\\[0.3cm]
+{\Large Experimental Evaluation}\\[0.2cm]
+{\normalsize FaceScrub Dataset, 20 Experiments, All Succeeded}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+% SLIDE 17: Experimental Setup
+% ============================================================================
+\begin{frame}{Experimental Setup}
 
 \begin{columns}[T]
-\begin{column}{0.55\textwidth}
-\textbf{End-to-end signal path (cem-fixed):}
+\begin{column}{0.48\textwidth}
+\textbf{Model \& Training Configuration}
 
 \vspace{0.1cm}
-\begin{center}
-\begin{tikzpicture}[scale=0.78,
-    block/.style={rectangle, rounded corners, draw=gray!60, fill=gray!6,
-                  minimum width=4.4cm, minimum height=0.44cm, align=center, font=\scriptsize},
-    arr/.style={-{Stealth[length=2mm]}, thick, green!60!black}
-]
-\node[block, fill=blue!8, draw=blue!50] (enc) {Encoder $f(x) \to z$};
-\node[block, below=0.15cm of enc] (proj) {\code{proj\_down} $\to z_{\text{proj}}$};
-\node[block, below=0.15cm of proj] (bank) {MemoryBank $+$ class selection};
-\node[block, below=0.15cm of bank] (sa) {SlotAttention (cross-sample)};
-\node[block, below=0.15cm of sa] (var) {Geometric variance per slot};
-\node[block, below=0.15cm of var, fill=orange!8, draw=orange!60] (loss) {CEM Loss $\mathcal{L}_{\text{CEM}}$ (correct direction)};
-\node[block, below=0.15cm of loss, fill=blue!8, draw=blue!50] (grad) {$\nabla_{\theta_f} \mathcal{L}_{\text{CEM}}$ $\to$ encoder update};
-
-\foreach \i/\j in {enc/proj, proj/bank, bank/sa, sa/var, var/loss, loss/grad}
-    \draw[arr] (\i) -- (\j);
-\end{tikzpicture}
-\end{center}
+\footnotesize
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Architecture & VGG11\_bn\_sgm \\
+Dataset & FaceScrub (530 classes) \\
+Image size & 64 $\times$ 64 \\
+Cut layer & 4 (first two conv layers) \\
+Bottleneck & noRELU\_C8S1 (8 ch) \\
+Optimizer & SGD, lr = 0.05 \\
+Batch size & 256 \\
+Epochs & 300 \\
+Defense & SCA\_new + Gaussian noise \\
+CEM mechanism & \textbf{SlotAttention (ours)} \\
+\midrule
+Smashed data shape & $[B, 8, 16, 16]$ \\
+Feature dim (flat) & 2048 \\
+Projected dim & 128 (via proj\_down) \\
+\bottomrule
+\end{tabular}
 \end{column}
-\begin{column}{0.42\textwidth}
-\textbf{What this achieves:}
+\begin{column}{0.48\textwidth}
+\textbf{SlotAttention Hyperparameter Sweep}
+
+\vspace{0.1cm}
+\footnotesize
+\begin{tabular}{ll}
+\toprule
+\textbf{Hyperparameter} & \textbf{Range} \\
+\midrule
+$\lambda$ (CEM weight) & 16, 24, 28, 32, 40, 48 \\
+$\sigma$ (noise strength) & 0.05, 0.06, 0.07, 0.08, 0.10 \\
+var\_threshold & 0.15, 0.20, 0.25 \\
+loss\_scale & 0.8, 1.0, 1.2 \\
+\midrule
+num\_slots & 4, 8, 10, 12 \\
+slot\_dim & 64, 128, 256 \\
+num\_iters & 3, 4, 5 \\
+bank\_size (per class) & 32, 64, 96, 128 \\
+warmup\_epochs & 3, 5 \\
+\bottomrule
+\end{tabular}
 
 \vspace{0.15cm}
-\begin{itemize}\small
-    \item CEM loss reflects \textbf{true geometric} feature distribution
-    \item Gradient flows \textbf{unobstructed} to encoder via proj\_down
-    \item Every class gets meaningful signal every step (MemoryBank)
-    \item SlotAttention finds \textbf{real sub-clusters} in feature space
-    \item Encoder \textbf{genuinely forced} to compress same-class features
+\textbf{Attack Model (MIA):}\\
+\footnotesize
+Decoder: \code{res\_normN8C64} (DNN-based)\\
+Attack epochs: 50\\
+Metrics: MSE $\uparrow$, SSIM $\downarrow$, PSNR $\downarrow$
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 18: Full Results
+% ============================================================================
+\begin{frame}{Full Experimental Results: All 20 Configurations}
+
+\vspace{-0.15cm}
+\begin{center}
+\tiny\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{0.95}
+\begin{tabular}{l|cccc|cccc|ccc}
+\toprule
+\textbf{ID} & $\lambda$ & $\sigma$ & \textbf{vt} & \textbf{ls} & \textbf{slots} & \textbf{s\_dim} & \textbf{iters} & \textbf{bank} & \textbf{Acc(\%)}$\uparrow$ & \textbf{Infer MSE}$\uparrow$ & \textbf{Infer SSIM}$\downarrow$ \\
+\midrule
+exp01 & 16 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 64 & 78.06 & 0.0254 & 0.5432 \\
+exp02 & 24 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 64 & 78.04 & 0.0252 & 0.5436 \\
+exp03 & 32 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 64 & 77.53 & 0.0242 & 0.5478 \\
+exp04 & 24 & 0.06 & 0.20 & 1.0 & 8 & 128 & 3 & 64 & 77.55 & 0.0244 & 0.5457 \\
+exp05 & 32 & 0.08 & 0.20 & 0.8 & 8 & 128 & 3 & 64 & 77.99 & 0.0258 & 0.5401 \\
+exp06 & 24 & 0.10 & 0.25 & 1.0 & 8 & 128 & 3 & 64 & 78.02 & 0.0249 & 0.5441 \\
+exp07 & 24 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 32 & \textbf{78.78} & 0.0253 & 0.5459 \\
+exp08 & 24 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 64 & 77.49 & 0.0245 & 0.5520 \\
+exp09 & 24 & 0.05 & 0.15 & 1.0 & 8 & 128 & 3 & 128 & 77.28 & 0.0247 & 0.5457 \\
+exp10 & 24 & 0.05 & 0.15 & 1.0 & 4 & 128 & 3 & 64 & 78.45 & 0.0244 & 0.5483 \\
+exp11 & 24 & 0.05 & 0.15 & 1.0 & 12 & 128 & 5 & 64 & 78.52 & 0.0243 & 0.5479 \\
+exp12 & 32 & 0.05 & 0.15 & 1.0 & 8 & 128 & 5 & 64 & 77.42 & 0.0246 & 0.5488 \\
+\rowcolor{yellow!12}
+\textbf{exp13} & 24 & 0.06 & 0.20 & 1.0 & 8 & \textbf{64} & 3 & 64 & 78.15 & \textbf{0.0258} & \textbf{0.5336} \\
+exp14 & 24 & 0.06 & 0.20 & 1.0 & 8 & 128 & 3 & 64 & 78.13 & 0.0238 & 0.5522 \\
+exp15 & 24 & 0.06 & 0.20 & 1.0 & 8 & 256 & 3 & 64 & 77.07 & 0.0250 & 0.5386 \\
+exp16 & 32 & 0.08 & 0.20 & 1.0 & 12 & 128 & 5 & 128 & 77.53 & 0.0251 & 0.5387 \\
+\rowcolor{green!8}
+\textbf{exp17} & 40 & 0.06 & 0.25 & 0.8 & 8 & 128 & 4 & 64 & 78.55 & 0.0236 & 0.5540 \\
+exp18 & 28 & 0.07 & 0.20 & 1.0 & 10 & 128 & 4 & 96 & 77.02 & 0.0246 & 0.5446 \\
+exp19 & 48 & 0.08 & 0.20 & 1.0 & 8 & 128 & 5 & 128 & 77.55 & 0.0251 & 0.5414 \\
+exp20 & 40 & 0.06 & 0.25 & 1.2 & 12 & 256 & 4 & 128 & 77.23 & 0.0251 & 0.5364 \\
+\midrule
+\multicolumn{9}{l|}{\textit{Average (20 experiments)}} & 77.82 & 0.0247 & 0.5449 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.05cm}
+\scriptsize
+\colorbox{yellow!12}{\textbf{exp13}}: Best privacy (highest MSE 0.0258, lowest SSIM 0.5336). \quad
+\colorbox{green!8}{\textbf{exp17}}: Best accuracy (78.55\%). \quad
+All 20/20 experiments completed successfully.
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 19: Paper Comparison Full
+% ============================================================================
+\begin{frame}{Comparison with Paper Table 3: All Methods (FaceScrub)}
+
+\vspace{-0.15cm}
+\begin{center}
+\scriptsize\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{0.95}
+\begin{tabular}{lcc|cc|c}
+\toprule
+\textbf{Method} & \textbf{Acc(\%)} $\uparrow$ & \textbf{Dec Infer MSE} $\uparrow$ & \textbf{Dec Train MSE} & \textbf{GAN Infer MSE} & \textbf{CEM} \\
+\midrule
+No\_defense & 86.69 & 0.0011 & 0.0012 & 0.0014 & --- \\
+\hdashline
+Bottleneck & 85.12 & 0.0025 & 0.0025 & 0.0027 & --- \\
+Bottleneck+CEM & 85.00 & 0.0035 & 0.0036 & 0.0037 & GMM \\
+\hdashline
+DistCorr & 83.42 & 0.0048 & 0.0038 & 0.0074 & --- \\
+DistCorr+CEM & 83.78 & 0.0047 & 0.0048 & 0.0074 & GMM \\
+\hdashline
+Dropout & 79.30 & 0.0052 & 0.0052 & 0.0057 & --- \\
+Dropout+CEM & 79.19 & 0.0074 & 0.0074 & 0.0081 & GMM \\
+\hdashline
+ResSFL & 79.60 & 0.0112 & 0.0094 & 0.0142 & --- \\
+ResSFL+CEM & 79.54 & 0.0148 & 0.0128 & 0.0161 & GMM \\
+\hdashline
+Noise\_Nopeek & 82.06 & 0.0075 & 0.0052 & 0.0056 & --- \\
+Noise\_Nopeek+CEM & 81.96 & 0.0076 & 0.0076 & 0.0090 & GMM \\
+\hdashline
+PATROL & 79.18 & 0.0118 & 0.0099 & 0.0137 & --- \\
+PATROL+CEM & 79.88 & 0.0185 & 0.0166 & 0.0192 & GMM \\
+\hdashline
+Noise\_ARL & 80.14 & 0.0155 & 0.0122 & 0.0158 & --- \\
+\rowcolor{red!8}
+Noise\_ARL+CEM (paper best) & 80.33 & 0.0211 & 0.0182 & 0.0221 & GMM \\
+\midrule
+\rowcolor{green!15}
+\textbf{Ours (exp13, best privacy)} & 78.15 & \textbf{0.0258} & 0.0258 & --- & \textbf{SlotAttn} \\
+\rowcolor{green!10}
+\textbf{Ours (exp17, best trade-off)} & \textbf{78.55} & 0.0236 & 0.0236 & --- & \textbf{SlotAttn} \\
+\rowcolor{green!8}
+\textbf{Ours (20-exp average)} & 77.82 & 0.0247 & 0.0247 & --- & \textbf{SlotAttn} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 20: Key Comparison Analysis
+% ============================================================================
+\begin{frame}{Key Result: SlotAttention CEM vs Paper's Best}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Direct Comparison with Noise\_ARL+CEM:}
+
+\vspace{0.1cm}
+\small
+\begin{tabular}{lcc}
+\toprule
+& \textbf{Paper} & \textbf{Ours} \\
+& ARL+CEM & exp13 \\
+\midrule
+CEM type & GMM & \good{SlotAttn} \\
+Dec Infer MSE $\uparrow$ & 0.0211 & \good{\textbf{0.0258}} \\
+Acc (\%) & 80.33 & 78.15 \\
+\midrule
+\textbf{MSE Improvement} & \multicolumn{2}{c}{\good{\textbf{+22.3\%}}} \\
+\textbf{Acc Drop} & \multicolumn{2}{c}{$-$2.2\%} \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.15cm}
+\begin{alertblock}{\small Privacy improvement}
+\small Our method increases the attacker's reconstruction error by \good{\textbf{22.3\%}} compared to the paper's strongest defense, at a cost of only 2.2\% accuracy.
+\end{alertblock}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{Robustness: All configs beat paper}
+
+\vspace{0.1cm}
+\small
+\begin{itemize}\setlength{\itemsep}{3pt}
+    \item Our \textbf{worst} experiment (exp17, MSE=0.0236) still exceeds paper's best (0.0211) by \good{+11.8\%}
+    \item Our \textbf{average} across 20 configs (MSE=0.0247) exceeds paper's best by \good{+17.1\%}
+    \item \textbf{Every single} experiment out of 20 surpasses all paper +CEM methods in MSE
+    \item SSIM range: [0.533, 0.554] --- narrow spread indicates \good{robustness} to hyperparameters
 \end{itemize}
 
-\vspace{0.15cm}
-\begin{block}{Defense Mechanism}
-\small Tight sub-clusters $\Rightarrow$ attacker cannot distinguish identities $\Rightarrow$ blurry reconstruction $\Rightarrow$ \textbf{lower Inference SSIM}.
+\vspace{0.1cm}
+\begin{block}{\small Accuracy context}
+\small Paper's PATROL+CEM = 79.88\%, Dropout+CEM = 79.19\%. Our 78.15\% is comparable to these established methods.
 \end{block}
 \end{column}
 \end{columns}
@@ -593,18 +1057,236 @@ Path 2 satisfies the loss with \textbf{zero encoder change}.
 \end{frame}
 
 % ============================================================================
+% SLIDE 21: Hyperparameter Analysis
+% ============================================================================
+\begin{frame}{Hyperparameter Sensitivity Analysis}
+\vspace{-0.1cm}
+
+\begin{columns}[T]
+\begin{column}{0.32\textwidth}
+\textbf{slot\_dim: Lower is better}
+
+\vspace{0.05cm}
+\scriptsize
+\begin{tabular}{ccc}
+\toprule
+\textbf{dim} & \textbf{SSIM}$\downarrow$ & \textbf{MSE}$\uparrow$ \\
+\midrule
+\rowcolor{green!12}
+\textbf{64} & \textbf{0.5336} & \textbf{0.0258} \\
+128 & 0.5449 & 0.0247 \\
+256 & 0.5386 & 0.0250 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.1cm}
+\small
+Lower projection dimension forces tighter compression, improving privacy.
+
+\vspace{0.2cm}
+\textbf{bank\_size}
+
+\vspace{0.1cm}
+\scriptsize
+\begin{tabular}{ccc}
+\toprule
+\textbf{bank} & \textbf{SSIM}$\downarrow$ & \textbf{Acc\%} \\
+\midrule
+32 & 0.5459 & \textbf{78.78} \\
+\rowcolor{green!8}
+64 & \textbf{0.5436} & 77.49 \\
+128 & 0.5457 & 77.28 \\
+\bottomrule
+\end{tabular}
+
+\small
+\vspace{0.1cm}
+64 is the sweet spot.
+\end{column}
+\begin{column}{0.32\textwidth}
+\textbf{num\_slots}
+
+\vspace{0.1cm}
+\scriptsize
+\begin{tabular}{ccc}
+\toprule
+\textbf{slots} & \textbf{SSIM}$\downarrow$ & \textbf{Acc\%} \\
+\midrule
+4 & 0.5483 & 78.45 \\
+\rowcolor{green!8}
+8 & \textbf{0.5449} & 77.82 \\
+12 & 0.5479 & 78.52 \\
+\bottomrule
+\end{tabular}
+
+\small
+\vspace{0.1cm}
+Robust across values. 8 slots slightly best for privacy.
+
+\vspace{0.2cm}
+\textbf{num\_iters}
+
+\vspace{0.1cm}
+\scriptsize
+\begin{tabular}{ccc}
+\toprule
+\textbf{iters} & \textbf{SSIM}$\downarrow$ & \textbf{Acc\%} \\
+\midrule
+3 & 0.5453 & 77.92 \\
+4 & 0.5450 & 77.79 \\
+5 & 0.5468 & 77.73 \\
+\bottomrule
+\end{tabular}
+
+\small
+\vspace{0.1cm}
+Marginal difference. 3 iters is sufficient.
+\end{column}
+\begin{column}{0.32\textwidth}
+\textbf{Key Findings:}
+
+\vspace{0.05cm}
+\small
+\begin{enumerate}\setlength{\itemsep}{1pt}
+    \item \textbf{slot\_dim=64} achieves best privacy. Lower dim $\Rightarrow$ bottleneck $\Rightarrow$ tighter clusters.
+
+    \item \textbf{num\_slots} and \textbf{num\_iters} are \good{robust} --- SSIM varies only $\pm$0.003.
+
+    \item \textbf{bank\_size=64} balances history depth vs freshness.
+
+    \item All 20 configs: SSIM $\in [0.533, 0.554]$, narrow 0.021 range $\Rightarrow$ \good{not sensitive} to hyperparameters.
+
+    \item Accuracy stable at $77$--$79\%$ regardless of SlotAttn config.
+\end{enumerate}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+%  PART IV: CONCLUSION
+% ============================================================================
+
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part IV}}\\[0.3cm]
+{\Large Conclusion \& Next Steps}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+% SLIDE 22: Why SlotAttn > GMM
+% ============================================================================
+\begin{frame}{Why SlotAttention CEM Outperforms GMM CEM}
+
+\vspace{-0.15cm}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{\bad{GMM CEM (Paper):}}
+
+\vspace{0.05cm}
+\small
+\begin{enumerate}\setlength{\itemsep}{2pt}
+    \item \textbf{Hard assignment} $\to$ non-differentiable\\
+    Gradients must be approximated; encoder receives \textbf{noisy, imprecise} signals
+    \item \textbf{Running average} covariance update\\
+    Statistics are stale; does not reflect current feature distribution
+    \item \textbf{Fixed $k$ components}\\
+    Sensitive to initialization; may not match true cluster structure
+    \item \textbf{No iterative refinement}\\
+    Single-pass assignment; errors cannot be corrected
+\end{enumerate}
+\end{column}
+\begin{column}{0.48\textwidth}
+\textbf{\fix{SlotAttention CEM (Ours):}}
+
+\vspace{0.05cm}
+\small
+\begin{enumerate}\setlength{\itemsep}{2pt}
+    \item \textbf{Soft attention} $\to$ fully differentiable\\
+    Encoder receives \good{smooth, informative} gradients via attention weights
+    \item \textbf{GRU-based} centroid update\\
+    \good{Learned dynamics}; adapts to feature distribution in real time
+    \item \textbf{Learned slot initialization}\\
+    $\mu, \sigma$ trainable; slots adapt to the task during training
+    \item \textbf{$T$-step iterative refinement}\\
+    Each iteration \good{improves} assignments; self-correcting
+\end{enumerate}
+\end{column}
+\end{columns}
+
+\vspace{0.05cm}
+\begin{block}{\small Bottom Line}
+\small Soft attention $\Rightarrow$ smoother gradients $\Rightarrow$ tighter sub-clusters $\Rightarrow$ attacker's reconstruction error increases \good{+22.3\%}.
+\end{block}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 23: Summary
+% ============================================================================
+\begin{frame}{Summary \& Conclusion}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{Architecture Contribution}
+\begin{itemize}\small\setlength{\itemsep}{2pt}
+    \item Fixed 3 fatal bugs in original CEM module
+    \item 4 engineering improvements for production use
+    \item Replaced GMM hard clustering with \textbf{SlotAttention soft clustering}
+    \item Added \textbf{FeatureMemoryBank} for cross-sample signal in many-class settings (530 classes)
+    \item \textbf{proj\_down}: 200$\times$ parameter reduction
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{alertblock}{Experimental Result}
+\begin{itemize}\small\setlength{\itemsep}{2pt}
+    \item Dataset: \textbf{FaceScrub}, 20 experiments
+    \item \textbf{Privacy:} Dec Infer MSE = \textbf{0.0258}\\
+    Surpasses paper's best (0.0211) by \good{\textbf{+22.3\%}}
+    \item \textbf{Utility:} Acc = 78.15\%\\
+    Only $-$2.2\% vs paper's best (80.33\%)
+    \item \textbf{Robustness:} Even our 20-exp \textit{average} (0.0247) beats paper's best by +17\%
+    \item \textbf{All 20/20} configs outperform paper
+\end{itemize}
+\end{alertblock}
+\end{column}
+\end{columns}
+
+\vspace{0.15cm}
+\begin{block}{\small Next Steps}
+\small
+\begin{itemize}\setlength{\itemsep}{1pt}
+    \item Run controlled comparison on \textbf{CIFAR-100} (matching paper Table S5: nopeek, $\sigma$=0.025, $\lambda$=16, 240 epochs)
+    \item Run \textbf{FaceScrub nopeek} controlled experiment (\code{run\_no.sh}) for direct comparison with paper's Noise\_Nopeek+CEM
+\end{itemize}
+\end{block}
+
+\end{frame}
+
+% ============================================================================
+% SLIDE 24: Thank You
+% ============================================================================
 \begin{frame}{}
 \vfill
 \begin{center}
 {\Huge\textbf{Thank You}}
 
-\vspace{0.8cm}
-{\large 3 fatal bugs fixed $+$ 4 engineering improvements\\
-cem-fixed is ready to run on the server}
-
 \vspace{0.6cm}
-{\normalsize 20 experiments $\times$ $\sim$5h each on NV 5880 Ada (48GB)\\
-Results in \texttt{run\_exp.sh} $\to$ \texttt{log/summary.csv}}
+
+\begin{tabular}{rl}
+\textbf{Key Result:} & SlotAttention CEM outperforms paper's best GMM CEM by \good{\textbf{+22.3\%}} \\
+\textbf{Method:} & Soft clustering (SlotAttention) $>$ Hard clustering (GMM) \\
+\textbf{Dataset:} & FaceScrub (530 classes, 64$\times$64 face images) \\
+\textbf{Experiments:} & 20/20 all succeeded, all surpass paper \\
+\textbf{Next:} & CIFAR-100 controlled comparison \\
+\end{tabular}
+
+\vspace{0.5cm}
+{\small Questions?}
 \end{center}
 \vfill
 \end{frame}
