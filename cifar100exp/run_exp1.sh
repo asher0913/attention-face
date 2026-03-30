@@ -92,7 +92,7 @@ lm "======================================================================"
 
 # ── fixed parameters (same for every experiment) ─────────────────────────────
 ARCH=vgg11_bn_sgm
-BATCH_SIZE=256
+BATCH_SIZE=128
 NUM_CLIENT=1
 RANDOM_SEED=125
 CUTLAYER=3
@@ -115,7 +115,7 @@ LR=0.05
 # Columns (space-separated, read by 'read -r'):
 #   EID  LAMBD  NOISE  VT  LS  SLOTS  ITERS  BANK  SDIM  WARMUP  EPOCHS
 #
-# Feature dim = 2048 (FaceScrub 64x64, cutlayer=4, noRELU_C8S1, feature_size=16)
+# Feature dim = 8192 (CIFAR-100 32→64x64 via ResizeLayer, cutlayer=3, noRELU_C8S1, [B,8,32,32])
 # proj_down projects 2048 → SDIM for Slot Attention + CEM variance
 # Centroids detached; CrossAttention removed (output unused)
 #

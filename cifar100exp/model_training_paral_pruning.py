@@ -2196,43 +2196,28 @@ class MIA_train: # main class for every thing
         
 
             self.f.eval()
-            # summary(self.f.cuda(), input_size=self.sample_image.shape)
-            # summary(self.model.cuda(), input_size=self.sample_image.shape)
-            with torch.cuda.device(0):
-                flops, params = get_model_complexity_info(self.f.cuda(), (3, 32, 32), as_strings=True, print_per_layer_stat=True)
-                print(f"FLOPs: {flops}, Parameters: {params}")        
-                flops, params = get_model_complexity_info(self.model.cuda(), (3, 32, 32), as_strings=True, print_per_layer_stat=True)
-                print(f"FLOPs: {flops}, Parameters: {params}")    
             model1_params = sum(p.numel() for p in self.f.parameters())
             model2_params = sum(p.numel() for p in self.model.parameters())
             print(f"Model 1 Params: {model1_params}, Model 2 Params: {model2_params}")
             self.model.eval()
             with torch.no_grad():
-                
-                input_tensor = torch.randn(128, 3, 32, 32)  
-                
+                input_tensor = torch.randn(128, 3, 32, 32)
                 if torch.cuda.is_available():
                     input_tensor = input_tensor.cuda()
                     self.model.cuda()
                     self.f.cuda()
-                    torch.cuda.synchronize()  # 确保所有CUDA核心同步
-                
-
+                    torch.cuda.synchronize()
                 start_time = time.time()
                 for i in range(100):
                     outputs = self.model(input_tensor)
-                
-                # 如果使用CUDA，需要同步确保所有计算完成
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
-                
-                # 停止计时
                 end_time = time.time()
-
                 total_time = end_time - start_time
-                print(f"推理时间: {total_time * 1000:.2f} ms")  # 输出以毫秒为单位
+                print(f"推理时间: {total_time * 1000:.2f} ms")
+            del input_tensor, outputs
+            torch.cuda.empty_cache()
 
-            
             LOG = None
             avg_accu = 0
             for client_id in range(self.num_client):
@@ -2661,6 +2646,9 @@ class MIA_train: # main class for every thing
             return all_test_losses.avg, ssim_test_losses.avg, psnr_test_losses.avg
 
     def train_infer_attack(self,train_data,test_data,MIA_optimizer,attack_num_epochs,noise_aware,attack_batchsize,loss_type,MIA_lr,logger,path_dict,input_nc,input_dim):
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
             self.feature_size = self.model.get_smashed_data_size()
             if self.gan_AE_type == "custom":
                 decoder = architectures.custom_AE(input_nc=input_nc, output_nc=3, input_dim=input_dim, output_dim=self.recons_dim,
@@ -2789,7 +2777,11 @@ class MIA_train: # main class for every thing
             # malicious_option = True if "local_plus_sampler" in args.MA_fashion else False
 
 
-            # Clear content of image_data_dir/tensor_data_dir
+            # Clear decoder from GPU before returning
+            del decoder, optimizer
+            import gc
+            gc.collect()
+            torch.cuda.empty_cache()
 
             return mse_score, ssim_score, psnr_score
         
@@ -2906,11 +2898,11 @@ class MIA_train: # main class for every thing
             # if epoch == 1:
             rec_inputs_list = []
             targets_list = []
-            for i, (input, target) in enumerate(testloader):
+            decoder.eval()
+            with torch.no_grad():
+              for i, (input, target) in enumerate(testloader):
                 input = input.cuda()
                 img, ir=self.gen_inp_feat_pair(input,local_model)
-                # decoder.eval()
-                # img, ir = data
                 img, ir = img.type(torch.FloatTensor), ir.type(torch.FloatTensor)
                 img, ir = Variable(img).to(device), Variable(ir).to(device)
                 if "Gaussian" in self.regularization_option:
@@ -2921,40 +2913,28 @@ class MIA_train: # main class for every thing
                 criterion_test = nn.MSELoss()
                 reconstruction_loss = criterion_test(output, img)
 
-                ####test_reconstruction acc 
-                # if epoch==10:
-                #     self.save_dir = "new_saves/cifar10/Aresult_model/None_infocons_sgm_lg1_thre0.125/pretrain_False_lambd_0_noise_0.01_epoch_240_bottleneck_noRELU_C8S1_log_1_ATstrength_0.3_lr_0.05_varthres_0.125/"
-                #     self.resume(model_path_f=None)
                 rec_inputs = normalize(output,self.dataset)
-                rec_inputs_list.append(rec_inputs.clone().cpu())  # 保存 inputs
+                rec_inputs_list.append(rec_inputs.clone().cpu())
                 targets_list.append(target.clone().cpu())
-                
+
                 pred = self.model.local_list[0](rec_inputs.cuda())
-                with torch.no_grad():
-                    pred = self.f_tail(pred)
-                    # if "Gaussian" in self.regularization_option:
-                    #     sigma = self.regularization_strength
-                    #     noise = sigma * torch.randn_like(pred).cuda()
-                    #     pred += noise
-                    if "mobilenetv2" in self.arch:
-                        pred = F.avg_pool2d(pred, 4)
-                        pred = pred.view(pred.size(0), -1)
-                        pred = self.classifier(pred)
-                    elif self.arch == "resnet20" or self.arch == "resnet32":
-                        pred = F.avg_pool2d(pred, 8)
-                        pred = pred.view(pred.size(0), -1)
-                        pred = self.classifier(pred)
-                    else:
-                        pred = self._flatten_for_classifier(pred)
-                        pred = self.classifier(pred)
+                pred = self.f_tail(pred)
+                if "mobilenetv2" in self.arch:
+                    pred = F.avg_pool2d(pred, 4)
+                    pred = pred.view(pred.size(0), -1)
+                    pred = self.classifier(pred)
+                elif self.arch == "resnet20" or self.arch == "resnet32":
+                    pred = F.avg_pool2d(pred, 8)
+                    pred = pred.view(pred.size(0), -1)
+                    pred = self.classifier(pred)
+                else:
+                    pred = self._flatten_for_classifier(pred)
+                    pred = self.classifier(pred)
                 prec1 = accuracy(pred.data.cpu(), target.cpu())[
-                0] 
+                0]
                 top1.update(prec1.item(), input.size(0))
-               
-                
-                
+
                 whitebox_con=0
-                # whitebox_con=
                 if whitebox_con==1:
                     loss,output_w = self.whitebox(self.model.local_list[0], img, ir, num_steps =5, X = output)
                     val_loss_white=criterion_test(output_w, img)
@@ -2975,9 +2955,8 @@ class MIA_train: # main class for every thing
                 self.writer.add_scalar('decoder_loss/val', val_loss.item(), len(testloader) * epoch + i)
                 self.writer.add_scalar('decoder_loss/val_loss/reconstruction', reconstruction_loss.item(),
                                        len(testloader) * epoch + i)
-            # [DEBUG BLOCK REMOVED] was: epoch==49 hardcoded cifar10 path override
-            # This was leftover debug code that would crash FaceScrub runs by
-            # overwriting self.save_dir with a non-existent CIFAR10 path.
+            # end of with torch.no_grad() and for loop
+            decoder.train()
             print('the pred acc is:',top1.avg)
             for name, param in decoder.named_parameters():
                 self.writer.add_histogram("decoder_params/{}".format(name), param.clone().cpu().data.numpy(), epoch)
@@ -3107,10 +3086,10 @@ class MIA_train: # main class for every thing
 
         criterion = nn.MSELoss()
 
-        for i, (input, target) in enumerate(sp_testloader):
+        with torch.no_grad():
+          for i, (input, target) in enumerate(sp_testloader):
             input = input.cuda()
             img, ir=self.gen_inp_feat_pair(input,local_model)
-            decoder.eval()
             img, ir = img.type(torch.FloatTensor), ir.type(torch.FloatTensor)
             img, ir = Variable(img).to(device), Variable(ir).to(device)
             if "Gaussian" in self.regularization_option:

@@ -35,8 +35,9 @@
 
 \title[SlotAttention CEM]{\textbf{SlotAttention CEM: Replacing GMM with}\\
 \textbf{Differentiable Soft Clustering for Split Learning Privacy}\\[0.2cm]
-{\normalsize Architecture Redesign \& Experimental Evaluation on FaceScrub}}
-\author{Group Meeting Presentation}
+{\normalsize Architecture Redesign \& Experimental Evaluation on FaceScrub}\\[0.1cm]
+{\small\color{warnorg} Interim Report --- based on early implementation (before bug fixes)}}
+\author{Asher --- Individual Project}
 \date{March 2026}
 
 \begin{document}
@@ -210,7 +211,7 @@ where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the co
 % ============================================================================
 % SLIDE 5: Our Contribution
 % ============================================================================
-\begin{frame}{Our Contribution: Replace GMM with SlotAttention}
+\begin{frame}{My Contribution: Replace GMM with SlotAttention}
 
 \begin{block}{Problem with GMM-based CEM}
 \small GMM uses \textbf{hard assignment} (each feature $\to$ nearest centroid). This is non-differentiable --- gradients must be approximated. The clustering quality depends heavily on initialization and component count $k$.
@@ -230,7 +231,7 @@ where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the co
 \end{itemize}
 \end{column}
 \begin{column}{0.48\textwidth}
-\textbf{\fix{Ours: SlotAttention Soft Clustering}}
+\textbf{\fix{Mine: SlotAttention Soft Clustering}}
 \small
 \begin{itemize}\setlength{\itemsep}{2pt}
     \item \good{Fully differentiable} soft attention
@@ -244,7 +245,7 @@ where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the co
 
 \vspace{0.15cm}
 \begin{alertblock}{\small Result Preview}
-\small Our SlotAttention CEM achieves Dec Infer MSE = \textbf{0.0258}, surpassing the paper's best result (0.0211) by \good{\textbf{+22.3\%}} on FaceScrub.
+\small My SlotAttention CEM achieves Dec Infer MSE = \textbf{0.0258}, surpassing the paper's best result (0.0211) by \good{\textbf{+22.3\%}} on FaceScrub. {\scriptsize\color{warnorg}(interim results --- implementation had bugs, updated experiments pending)}
 \end{alertblock}
 
 \end{frame}
@@ -266,7 +267,7 @@ where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the co
 % ============================================================================
 % SLIDE 6: Overview
 % ============================================================================
-\begin{frame}{Overview: What Was Wrong and What We Fixed}
+\begin{frame}{Overview: What Was Wrong and What I Fixed}
 
 \begin{columns}[T]
 \begin{column}{0.48\textwidth}
@@ -280,7 +281,7 @@ where $\xi^*$ is the optimal reconstruction MSE and $\mathcal{H}(x|z)$ is the co
 {\small All three bugs together make CEM not only ineffective but potentially \textbf{harmful} to defense.}
 \end{column}
 \begin{column}{0.48\textwidth}
-\textbf{\fix{cem-fixed (Our Version)}}\\[0.15cm]
+\textbf{\fix{cem-fixed (My Version)}}\\[0.15cm]
 \begin{itemize}\setlength{\itemsep}{3pt}
     \item[\good{$\checkmark$}] Loss direction corrected
     \item[\good{$\checkmark$}] Geometric variance computation
@@ -866,7 +867,7 @@ Optimizer & SGD, lr = 0.05 \\
 Batch size & 256 \\
 Epochs & 300 \\
 Defense & SCA\_new + Gaussian noise \\
-CEM mechanism & \textbf{SlotAttention (ours)} \\
+CEM mechanism & \textbf{SlotAttention (mine)} \\
 \midrule
 Smashed data shape & $[B, 8, 16, 16]$ \\
 Feature dim (flat) & 2048 \\
@@ -910,7 +911,7 @@ Metrics: MSE $\uparrow$, SSIM $\downarrow$, PSNR $\downarrow$
 % ============================================================================
 % SLIDE 18: Full Results
 % ============================================================================
-\begin{frame}{Full Experimental Results: All 20 Configurations}
+\begin{frame}{Full Experimental Results: All 20 Configurations {\small\color{warnorg}(Interim)}}
 
 \vspace{-0.15cm}
 \begin{center}
@@ -952,7 +953,7 @@ exp20 & 40 & 0.06 & 0.25 & 1.2 & 12 & 256 & 4 & 128 & 77.23 & 0.0251 & 0.5364 \\
 \scriptsize
 \colorbox{yellow!12}{\textbf{exp13}}: Best privacy (highest MSE 0.0258, lowest SSIM 0.5336). \quad
 \colorbox{green!8}{\textbf{exp17}}: Best accuracy (78.55\%). \quad
-All 20/20 experiments completed successfully.
+All 20/20 experiments completed successfully. {\color{warnorg}Results from early implementation --- updated runs pending.}
 
 \end{frame}
 
@@ -994,11 +995,11 @@ Noise\_ARL & 80.14 & 0.0155 & 0.0122 & 0.0158 & --- \\
 Noise\_ARL+CEM (paper best) & 80.33 & 0.0211 & 0.0182 & 0.0221 & GMM \\
 \midrule
 \rowcolor{green!15}
-\textbf{Ours (exp13, best privacy)} & 78.15 & \textbf{0.0258} & 0.0258 & --- & \textbf{SlotAttn} \\
+\textbf{Mine (exp13, best privacy)} & 78.15 & \textbf{0.0258} & 0.0258 & --- & \textbf{SlotAttn} \\
 \rowcolor{green!10}
-\textbf{Ours (exp17, best trade-off)} & \textbf{78.55} & 0.0236 & 0.0236 & --- & \textbf{SlotAttn} \\
+\textbf{Mine (exp17, best trade-off)} & \textbf{78.55} & 0.0236 & 0.0236 & --- & \textbf{SlotAttn} \\
 \rowcolor{green!8}
-\textbf{Ours (20-exp average)} & 77.82 & 0.0247 & 0.0247 & --- & \textbf{SlotAttn} \\
+\textbf{Mine (20-exp average)} & 77.82 & 0.0247 & 0.0247 & --- & \textbf{SlotAttn} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -1018,7 +1019,7 @@ Noise\_ARL+CEM (paper best) & 80.33 & 0.0211 & 0.0182 & 0.0221 & GMM \\
 \small
 \begin{tabular}{lcc}
 \toprule
-& \textbf{Paper} & \textbf{Ours} \\
+& \textbf{Paper} & \textbf{Mine} \\
 & ARL+CEM & exp13 \\
 \midrule
 CEM type & GMM & \good{SlotAttn} \\
@@ -1032,24 +1033,25 @@ Acc (\%) & 80.33 & 78.15 \\
 
 \vspace{0.15cm}
 \begin{alertblock}{\small Privacy improvement}
-\small Our method increases the attacker's reconstruction error by \good{\textbf{22.3\%}} compared to the paper's strongest defense, at a cost of only 2.2\% accuracy.
+\small My method increases the attacker's reconstruction error by \good{\textbf{22.3\%}} compared to the paper's strongest defense, at a cost of only 2.2\% accuracy.
 \end{alertblock}
 \end{column}
 \begin{column}{0.48\textwidth}
-\textbf{Robustness: All configs beat paper}
+\textbf{Robustness: All configs beat paper}\\
+{\tiny\color{warnorg}(interim --- early implementation)}
 
 \vspace{0.1cm}
 \small
 \begin{itemize}\setlength{\itemsep}{3pt}
-    \item Our \textbf{worst} experiment (exp17, MSE=0.0236) still exceeds paper's best (0.0211) by \good{+11.8\%}
-    \item Our \textbf{average} across 20 configs (MSE=0.0247) exceeds paper's best by \good{+17.1\%}
+    \item My \textbf{worst} experiment (exp17, MSE=0.0236) still exceeds paper's best (0.0211) by \good{+11.8\%}
+    \item My \textbf{average} across 20 configs (MSE=0.0247) exceeds paper's best by \good{+17.1\%}
     \item \textbf{Every single} experiment out of 20 surpasses all paper +CEM methods in MSE
     \item SSIM range: [0.533, 0.554] --- narrow spread indicates \good{robustness} to hyperparameters
 \end{itemize}
 
 \vspace{0.1cm}
 \begin{block}{\small Accuracy context}
-\small Paper's PATROL+CEM = 79.88\%, Dropout+CEM = 79.19\%. Our 78.15\% is comparable to these established methods.
+\small Paper's PATROL+CEM = 79.88\%, Dropout+CEM = 79.19\%. My 78.15\% is comparable to these established methods.
 \end{block}
 \end{column}
 \end{columns}
@@ -1200,7 +1202,7 @@ Marginal difference. 3 iters is sufficient.
 \end{enumerate}
 \end{column}
 \begin{column}{0.48\textwidth}
-\textbf{\fix{SlotAttention CEM (Ours):}}
+\textbf{\fix{SlotAttention CEM (Mine):}}
 
 \vspace{0.05cm}
 \small
@@ -1219,7 +1221,7 @@ Marginal difference. 3 iters is sufficient.
 
 \vspace{0.05cm}
 \begin{block}{\small Bottom Line}
-\small Soft attention $\Rightarrow$ smoother gradients $\Rightarrow$ tighter sub-clusters $\Rightarrow$ attacker's reconstruction error increases \good{+22.3\%}.
+\small Soft attention $\Rightarrow$ smoother gradients $\Rightarrow$ tighter sub-clusters $\Rightarrow$ attacker's reconstruction error increases \good{+22.3\%}. {\scriptsize\color{warnorg}(results from early implementation, updated experiments in progress)}
 \end{block}
 
 \end{frame}
@@ -1239,6 +1241,7 @@ Marginal difference. 3 iters is sufficient.
     \item Added \textbf{FeatureMemoryBank} for cross-sample signal in many-class settings (530 classes)
     \item \textbf{proj\_down}: 200$\times$ parameter reduction
 \end{itemize}
+{\scriptsize\color{warnorg} Note: This is an interim report. The early implementation had bugs that have since been identified and fixed. Updated experiments are currently running.}
 \end{block}
 \end{column}
 \begin{column}{0.48\textwidth}
@@ -1249,7 +1252,7 @@ Marginal difference. 3 iters is sufficient.
     Surpasses paper's best (0.0211) by \good{\textbf{+22.3\%}}
     \item \textbf{Utility:} Acc = 78.15\%\\
     Only $-$2.2\% vs paper's best (80.33\%)
-    \item \textbf{Robustness:} Even our 20-exp \textit{average} (0.0247) beats paper's best by +17\%
+    \item \textbf{Robustness:} Even my 20-exp \textit{average} (0.0247) beats paper's best by +17\%
     \item \textbf{All 20/20} configs outperform paper
 \end{itemize}
 \end{alertblock}
@@ -1257,11 +1260,12 @@ Marginal difference. 3 iters is sufficient.
 \end{columns}
 
 \vspace{0.15cm}
-\begin{block}{\small Next Steps}
+\begin{block}{\small Next Steps (in progress)}
 \small
 \begin{itemize}\setlength{\itemsep}{1pt}
-    \item Run controlled comparison on \textbf{CIFAR-100} (matching paper Table S5: nopeek, $\sigma$=0.025, $\lambda$=16, 240 epochs)
-    \item Run \textbf{FaceScrub nopeek} controlled experiment (\code{run\_no.sh}) for direct comparison with paper's Noise\_Nopeek+CEM
+    \item \textbf{CIFAR-100} controlled comparison (matching paper Table S5: nopeek, $\sigma$=0.025, $\lambda$=16, 240 epochs) --- scripts ready
+    \item \textbf{TinyImageNet} experiment (matching paper Table 2: ResNet-20, cutlayer=4, 120 epochs) --- scripts ready
+    \item Re-run \textbf{FaceScrub} with bug-fixed implementation
 \end{itemize}
 \end{block}
 
@@ -1282,7 +1286,8 @@ Marginal difference. 3 iters is sufficient.
 \textbf{Method:} & Soft clustering (SlotAttention) $>$ Hard clustering (GMM) \\
 \textbf{Dataset:} & FaceScrub (530 classes, 64$\times$64 face images) \\
 \textbf{Experiments:} & 20/20 all succeeded, all surpass paper \\
-\textbf{Next:} & CIFAR-100 controlled comparison \\
+\textbf{Status:} & \warn{Interim report} --- bug-fixed experiments in progress \\
+\textbf{Next:} & CIFAR-100 + TinyImageNet controlled comparisons \\
 \end{tabular}
 
 \vspace{0.5cm}
