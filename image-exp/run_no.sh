@@ -51,7 +51,7 @@ GPU           : ${GPU_ID}
 
 Purpose: Compare SlotAttn CEM vs GMM CEM on TinyImageNet
   Base defense: Noise_Nopeek (distance correlation loss + Gaussian noise)
-  Architecture: vgg11_bn_sgm (cutlayer=4, bottleneck=noRELU_C8S1)
+  Architecture: resnet20 (cutlayer=4, bottleneck=noRELU_C8S1) — matching paper
   Fixed params: σ=0.025, λ=16, 120 epochs (matching paper Table 2)
   Variable: SlotAttn hyperparams (slots, iters, bank, slot_dim)
   Compare against: Paper Table 2 Noise_Nopeek+CEM on TinyImageNet
@@ -95,11 +95,11 @@ lm "======================================================================"
 
 # ── fixed parameters (same for every experiment) ─────────────────────────────
 # ── All fixed to match paper Section 5.1 for TinyImageNet ────────────────────
-ARCH=vgg11_bn_sgm
+ARCH=resnet20               # paper uses ResNet-20 for TinyImageNet
 BATCH_SIZE=128              # TinyImageNet: 200 classes, use 128 for GPU memory
 NUM_CLIENT=1
 RANDOM_SEED=125
-CUTLAYER=4                  # cutlayer=4 for vgg11: 2 conv blocks (Conv64→MP→Conv128→MP)
+CUTLAYER=4                  # ResNet-20 cutlayer=4: conv5x5 + 3 stage_1 blocks (paper "first 4 conv layers")
 BOTTLENECK=noRELU_C8S1      # paper: 8-channel bottleneck for all methods
 DATASET=tinyimagenet
 SCHEME=V2_epoch
@@ -122,10 +122,10 @@ LR=0.05                    # paper: SGD lr=0.05
 # FIXED (matching paper Table 2): LAMBD=16, NOISE=0.025, EPOCHS=120
 # SWEEP: SlotAttn hyperparams only (slots, iters, bank, slot_dim, loss_scale, var_thr)
 #
-# TinyImageNet is 64x64 → vgg11_bn_sgm ResizeLayer keeps 64x64
-# cutlayer=4: Conv64→MaxPool(32)→Conv128→MaxPool(16)→BN_C8S1
-# smashed data: [B, 8, 16, 16] → flatten [B, 2048]
-# proj_down projects 2048 → SDIM for Slot Attention
+# ResNet-20 + TinyImageNet 64x64 + cutlayer=4 + BN_C8S1:
+#   conv5x5(16)→stage_1(3 blocks, stride=2, 32ch)→BN_C8S1
+#   smashed data: [B, 8, 32, 32] → flatten [B, 8192]
+#   proj_down projects 8192 → SDIM for Slot Attention
 #
 # Group A (01-03): slot_dim sweep (64, 128, 256)
 # Group B (04-06): slots + iters sweep (4/12 slots, 5 iters)

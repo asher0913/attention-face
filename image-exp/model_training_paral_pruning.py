@@ -2306,7 +2306,7 @@ class MIA_train: # main class for every thing
                     ir = ir.view(ir.size(0), -1)
                     ir = self.classifier(ir)
                 elif self.arch == "resnet20" or self.arch == "resnet32":
-                    ir = F.avg_pool2d(ir, 8)
+                    ir = F.adaptive_avg_pool2d(ir, (1, 1))
                     ir = ir.view(ir.size(0), -1)
                     ir = self.classifier(ir)
                 else:
@@ -2667,6 +2667,17 @@ class MIA_train: # main class for every thing
 
     def train_infer_attack(self,train_data,test_data,MIA_optimizer,attack_num_epochs,noise_aware,attack_batchsize,loss_type,MIA_lr,logger,path_dict,input_nc,input_dim):
             self.feature_size = self.model.get_smashed_data_size()
+            # Fix: ResNet probes with 32x32, but TinyImageNet/FaceScrub are 64x64.
+            # Re-probe with actual image size to get correct smashed data dimensions.
+            if self.sample_image is not None and self.sample_image.shape[-1] != 32:
+                try:
+                    with torch.no_grad():
+                        device = next(self.model.local.parameters()).device
+                        img_size = self.sample_image.shape[-1]
+                        probe = torch.randn([1, 3, img_size, img_size]).to(device)
+                        self.feature_size = self.model.local(probe).size()
+                except:
+                    pass  # fall back to original get_smashed_data_size result
             if self.gan_AE_type == "custom":
                 decoder = architectures.custom_AE(input_nc=input_nc, output_nc=3, input_dim=input_dim, output_dim=self.recons_dim,
                                                     activation=self.gan_AE_activation).cuda()
@@ -2682,7 +2693,7 @@ class MIA_train: # main class for every thing
                     N = 0
                     internal_C = 64
                 decoder = architectures.conv_normN_AE(N = N, internal_nc = internal_C, input_nc=self.feature_size[1], output_nc=3,
-                                                         input_dim=self.feature_size[2]*(self.sample_image.shape[-1]/32), output_dim=self.sample_image.shape[-1],
+                                                         input_dim=self.feature_size[2], output_dim=self.sample_image.shape[-1],
                                                          activation=self.gan_AE_activation).cuda()
 
             elif "res_normN" in self.gan_AE_type:
@@ -2698,9 +2709,9 @@ class MIA_train: # main class for every thing
                     feature_dim=16
                 else:
                     feature_dim=8
-                print((self.sample_image.shape[-1]/32),self.feature_size)
+                print("feature_size:", self.feature_size, "image_size:", self.sample_image.shape[-1])
                 decoder = architectures.res_normN_AE(N = N, internal_nc = internal_C, input_nc=self.feature_size[1], output_nc=3,
-                                                         input_dim=8*(self.sample_image.shape[-1]/32), output_dim=self.sample_image.shape[-1],
+                                                         input_dim=self.feature_size[2], output_dim=self.sample_image.shape[-1],
                                                          activation=self.gan_AE_activation).cuda()
             
             else:
@@ -2946,7 +2957,7 @@ class MIA_train: # main class for every thing
                         pred = pred.view(pred.size(0), -1)
                         pred = self.classifier(pred)
                     elif self.arch == "resnet20" or self.arch == "resnet32":
-                        pred = F.avg_pool2d(pred, 8)
+                        pred = F.adaptive_avg_pool2d(pred, (1, 1))
                         pred = pred.view(pred.size(0), -1)
                         pred = self.classifier(pred)
                     else:
@@ -3194,7 +3205,7 @@ class MIA_train: # main class for every thing
                         save_activation = save_activation.view(save_activation.size(0), -1)
                         save_activation = self.classifier(save_activation)
                     elif self.arch == "resnet20" or self.arch == "resnet32":
-                        save_activation = F.avg_pool2d(save_activation, 8)
+                        save_activation = F.adaptive_avg_pool2d(save_activation, (1, 1))
                         save_activation = save_activation.view(save_activation.size(0), -1)
                         save_activation = self.classifier(save_activation)
                     else:
