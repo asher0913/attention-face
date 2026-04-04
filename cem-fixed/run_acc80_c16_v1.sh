@@ -1,17 +1,27 @@
 #!/bin/bash
 # =============================================================================
-# run_acc80.sh — FaceScrub CEM-fixed: accuracy-optimized experiment v2
+# run_acc80.sh — FaceScrub CEM-fixed: single accuracy-optimized experiment
 #
 # Target:  Acc ≈ 80%  (paper Noise_ARL+CEM = 80.33%)
 #          MSE ≈ 0.023 (~10% above paper's 0.0211)
 #
-# Based on acc80-1 (C16 v1): Acc=79.17%, MSE=0.0278, SSIM=0.516
-# Changes vs v1:
-#   σ:  0.035 → 0.025  (weaker noise → higher acc)
-#   λ:  14    → 10     (weaker CEM → higher acc, lower MSE)
-#   Everything else unchanged (C16 bottleneck, AT_STR=0.15, slot params)
+# Key change: bottleneck C8→C16 (8→16 channels)
+#   Previous runs showed σ/λ/AT_STR reductions alone couldn't break 78.5%
+#   The 8-channel bottleneck is the true accuracy ceiling.
+#   C16 doubles information capacity while still providing privacy compression
+#   (original 128ch → 16ch = 87.5% compression, vs 128→8 = 93.75%)
 #
-# Previous saved as: run_acc80_c16_v1.sh
+# Based on acc80 exp01 (Acc=78.43%, MSE=0.0247, σ=0.03, λ=12, AT_STR=0.15, C8)
+# Changes:
+#   bottleneck: noRELU_C8S1 → noRELU_C16S1  (key change)
+#   σ:  0.03 → 0.035  (slightly increased to compensate C16 privacy loss)
+#   λ:  12 → 14       (slightly increased for same reason)
+#   AT_STR: 0.15 (unchanged)
+#   Slot params unchanged: slot_dim=64, slots=8, iters=3, bank=64
+#
+# NOTE: vgg.py LCALayer was fixed to use bottleneck_channel_size dynamically
+#       (was hardcoded to 8). feature_dim for SCA_new is auto-detected.
+#       Attack decoder input_nc/input_dim are auto-detected from tensor shape.
 #
 # Usage: bash run_acc80.sh [GPU_ID]   (default GPU=0)
 # =============================================================================
@@ -43,7 +53,7 @@ lexp() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" \
              | tee -a "${MASTER_LOG}"; }
 
 lm "======================================================================"
-lm " run_acc80.sh v2  |  FaceScrub accuracy-optimized (C16)  |  GPU ${GPU_ID}"
+lm " run_acc80.sh  |  FaceScrub accuracy-optimized (C16)  |  GPU ${GPU_ID}"
 lm " Run dir  :  ${RUN_DIR}"
 lm "======================================================================"
 
@@ -53,7 +63,7 @@ BATCH_SIZE=256
 NUM_CLIENT=1
 RANDOM_SEED=125
 CUTLAYER=4
-BOTTLENECK=noRELU_C16S1
+BOTTLENECK=noRELU_C16S1       # KEY CHANGE: 8→16 channels
 DATASET=facescrub
 SCHEME=V2_epoch
 REGULARIZATION=Gaussian_kl
@@ -69,9 +79,9 @@ ATTACK_EPOCHS=50
 LR=0.05
 EPOCHS=300
 
-# ── weakened defense (v2) ──────────────────────────────────────────────────
-LAMBD=10                      # v1=14 → v2=10
-NOISE=0.025                   # v1=0.035 → v2=0.025
+# ── accuracy-optimized hyperparams ──────────────────────────────────────────
+LAMBD=14                      # slightly above previous 12, compensate C16
+NOISE=0.035                   # slightly above previous 0.03, compensate C16
 VT=0.15
 LS=1.0
 SLOTS=8
@@ -87,13 +97,13 @@ EXP_LOG="${RUN_DIR}/${EID}.log"
 EFF=$(awk "BEGIN{ printf \"%.1f\", ${LAMBD} * ${LS} }")
 THR=$(awk "BEGIN{ printf \"%.2e\", ${VT} * ${NOISE}^2 }")
 
-FOLDER="saves/facescrub/${AT_REG}_cemfixed_acc80c16v2_vt${VT}"
+FOLDER="saves/facescrub/${AT_REG}_cemfixed_acc80c16_vt${VT}"
 FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk${BANK}_sd${SDIM}_wu${WARMUP}_at${AT_REG_STR}_bn${BOTTLENECK}"
 
 {
     printf '\n'
     printf '%.0s=' {1..72}; printf '\n'
-    printf ' Accuracy-optimized experiment v2 (C16 bottleneck, weaker defense)\n'
+    printf ' Accuracy-optimized experiment (C16 bottleneck)\n'
     printf '   lambd=%-4s  noise=%-5s  var_thr=%-5s  loss_scale=%s  at_reg_str=%s\n' \
            "${LAMBD}" "${NOISE}" "${VT}" "${LS}" "${AT_REG_STR}"
     printf '   bottleneck=%s\n' "${BOTTLENECK}"
@@ -101,8 +111,8 @@ FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk$
     printf '   slots=%-3s  slot_dim=%s  iters=%s  bank=%s  warmup=%s  epochs=%s\n' \
            "${SLOTS}" "${SDIM}" "${ITERS}" "${BANK}" "${WARMUP}" "${EPOCHS}"
     printf '   Target: Acc ~80%%, MSE ~0.023\n'
-    printf '   Ref v1 (C16): Acc=79.17%%, MSE=0.0278, SSIM=0.516\n'
-    printf '   Ref exp13 (C8): Acc=78.15%%, MSE=0.0258\n'
+    printf '   Ref (C8):  acc80 exp01 Acc=78.43%%, MSE=0.0247\n'
+    printf '   Ref (C8):  exp13       Acc=78.15%%, MSE=0.0258\n'
     printf '%.0s=' {1..72}; printf '\n'
 } | tee -a "${EXP_LOG}" | tee -a "${MASTER_LOG}"
 
@@ -196,8 +206,8 @@ lexp "[${EID}] <<<<<< ATTACK OK  $(date)"
 
 lm ""
 lm "======================================================================"
-lm " DONE — v2 experiment complete"
+lm " DONE — single experiment complete"
 lm "   Log: ${EXP_LOG}"
 lm "   Target: Acc ~80%, MSE ~0.023"
-lm "   Changes vs v1: sigma 0.035->0.025, lambda 14->10"
+lm "   Key change: bottleneck C8→C16 (noRELU_C16S1)"
 lm "======================================================================"
