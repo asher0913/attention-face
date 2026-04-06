@@ -162,8 +162,7 @@ for date_0 in date_list:
                     attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
                     attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
                     attention_warmup_epochs=args.attention_warmup_epochs, attention_bank_size=args.attention_bank_size,
-                    attention_slot_dim=args.attention_slot_dim,
-                    var_threshold=args.var_threshold)
+                    attention_slot_dim=args.attention_slot_dim)
     if args.new_log_folder:
         new_folder_dir = mi.save_dir + '/{}_{}/'.format(args.regularization, args.regularization_strength)
         new_folder_dir = os.path.abspath(new_folder_dir)
