@@ -1,0 +1,247 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\setbeamertemplate{itemize items}[circle]
+\setbeamersize{text margin left=5mm, text margin right=5mm}
+
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{adjustbox}
+\usepackage{arydshln}
+
+\definecolor{stageblue}{RGB}{41,98,255}
+\definecolor{paramred}{RGB}{200,50,50}
+\definecolor{goodgreen}{RGB}{34,139,34}
+\definecolor{warnorg}{RGB}{200,120,0}
+\definecolor{lightgray}{RGB}{240,240,240}
+
+\newcommand{\good}[1]{\textcolor{goodgreen}{#1}}
+\newcommand{\bad}[1]{\textcolor{paramred}{#1}}
+\newcommand{\warn}[1]{\textcolor{warnorg}{#1}}
+
+\title[Weekly Update]{\textbf{Weekly Progress Update}\\[0.2cm]
+{\normalsize SlotAttention CEM for Split Learning Privacy}\\[0.1cm]
+{\small April 2026}}
+\author{Asher --- Individual Project}
+\date{}
+
+\begin{document}
+
+% ============================================================================
+% TITLE
+% ============================================================================
+\begin{frame}
+\titlepage
+\end{frame}
+
+% ============================================================================
+% OVERVIEW
+% ============================================================================
+\begin{frame}{This Week's Progress}
+
+\begin{itemize}\setlength{\itemsep}{12pt}
+    \item[\textbf{1.}] \textbf{No-Defense Baseline} (FaceScrub)\\
+    {\small Established the ``no defense'' reference point for comparison}
+
+    \vspace{4pt}
+
+    \item[\textbf{2.}] \textbf{Accuracy-Optimized Configuration} (FaceScrub)\\
+    {\small Improved accuracy from 78\% $\to$ 79.5\% while maintaining strong privacy}
+\end{itemize}
+
+\end{frame}
+
+% ============================================================================
+% PART 1: NO DEFENSE BASELINE
+% ============================================================================
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part 1}}\\[0.3cm]
+{\Large No-Defense Baseline on FaceScrub}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+\begin{frame}{No-Defense Baseline --- Setup}
+
+\begin{itemize}\setlength{\itemsep}{8pt}
+    \item \textbf{Purpose}: Establish the upper bound for accuracy and lower bound for privacy
+    \item \textbf{Configuration}: Same architecture (VGG-11), no noise, no CEM, no regularization
+    \item All defense mechanisms disabled:
+    \begin{itemize}
+        \item Gaussian noise $\sigma = 0$
+        \item CEM weight $\lambda = 0$
+        \item AT regularization = None
+        \item Bottleneck = None
+    \end{itemize}
+    \item \textbf{Dataset}: FaceScrub (530 classes, 64$\times$64)
+    \item \textbf{Training}: 240 epochs
+\end{itemize}
+
+\end{frame}
+
+% ============================================================================
+\begin{frame}{No-Defense Baseline --- Results}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{l c c}
+\toprule
+\textbf{Metric} & \textbf{No Defense (My Run)} & \textbf{Paper No\_defense} \\
+\midrule
+Accuracy (\%) $\uparrow$ & \textbf{89.43} & 86.69 \\
+\hdashline
+Dec Infer MSE $\uparrow$ & 0.00067 & 0.0011 \\
+Dec Infer SSIM $\downarrow$ & 0.949 & --- \\
+Dec Infer PSNR $\downarrow$ & 31.76 & --- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3cm}
+
+\begin{alertblock}{Interpretation}
+\begin{itemize}\small
+    \item Accuracy \textbf{89.43\%} confirms VGG-11 has strong classification capability on FaceScrub
+    \item MSE = 0.00067, SSIM = 0.949 $\Rightarrow$ attacker can \bad{nearly perfectly reconstruct} faces
+    \item This is the \textbf{worst-case privacy scenario} --- any defense must improve upon this
+\end{itemize}
+\end{alertblock}
+
+\end{frame}
+
+% ============================================================================
+% PART 2: ACCURACY-OPTIMIZED
+% ============================================================================
+\begin{frame}{}
+\vfill
+\begin{center}
+{\Huge\textbf{Part 2}}\\[0.3cm]
+{\Large Accuracy-Optimized Configuration}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================================
+\begin{frame}{Motivation --- Accuracy vs Privacy Trade-off}
+
+\begin{itemize}\setlength{\itemsep}{6pt}
+    \item Previous best (exp13): Acc = 78.15\%, Dec Infer MSE = 0.0258
+    \item Paper best (Noise\_ARL+CEM): Acc = \textbf{80.33\%}, MSE = 0.0211
+    \item \textbf{Gap}: My accuracy is 2.2\% lower than paper
+    \item \textbf{Goal}: Push accuracy closer to 80\% while keeping privacy advantage
+\end{itemize}
+
+\vspace{0.3cm}
+
+\begin{block}{Strategy: Two Changes}
+\begin{enumerate}\setlength{\itemsep}{4pt}
+    \item \textbf{Wider bottleneck}: C8 $\to$ C16 (8 $\to$ 16 channels)\\
+    {\small More information capacity through the split point, 87.5\% compression vs 93.75\%}
+    \item \textbf{Weaker defense parameters}: Lower $\sigma$, $\lambda$, AT strength\\
+    {\small Trade a small amount of privacy for better classification}
+\end{enumerate}
+\end{block}
+
+\end{frame}
+
+% ============================================================================
+\begin{frame}{Accuracy-Optimized --- Configurations Tested}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\small
+\begin{tabular}{l c c c c c c}
+\toprule
+\textbf{Config} & \textbf{Bottleneck} & $\boldsymbol{\sigma}$ & $\boldsymbol{\lambda}$ & \textbf{AT\_STR} & \textbf{Acc(\%)} & \textbf{MSE} \\
+\midrule
+exp13 (prev.\ best) & C8 & 0.06 & 24 & 0.30 & 78.15 & 0.0258 \\
+\hdashline
+C16 v1 & \good{C16} & 0.035 & 14 & 0.15 & 79.17 & 0.0278 \\
+\rowcolor{green!10}
+C16 v2 & \good{C16} & 0.025 & 10 & 0.15 & \textbf{79.49} & 0.0274 \\
+\midrule
+Paper best & C8 & 0.025 & --- & --- & 80.33 & 0.0211 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.2cm}
+
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{\small Accuracy Improvement}
+\begin{itemize}\small
+    \item 78.15\% $\to$ \good{\textbf{79.49\%}} (+1.34\%)
+    \item Gap to paper: 2.2\% $\to$ \good{0.84\%}
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{\small Privacy Maintained}
+\begin{itemize}\small
+    \item MSE = 0.0274 still \good{+30\%} above paper's 0.0211
+    \item SSIM = 0.518, lower than exp13's 0.543
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+
+\end{frame}
+
+% ============================================================================
+\begin{frame}{Full Comparison --- All Key Results}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{l c c c c}
+\toprule
+\textbf{Configuration} & \textbf{Acc(\%)} $\uparrow$ & \textbf{MSE} $\uparrow$ & \textbf{SSIM} $\downarrow$ & \textbf{PSNR} $\downarrow$ \\
+\midrule
+No defense & 89.43 & 0.00067 & 0.949 & 31.76 \\
+\hdashline
+Paper Noise\_ARL+CEM & 80.33 & 0.0211 & --- & --- \\
+\hdashline
+My exp13 (C8, strong defense) & 78.15 & \good{\textbf{0.0258}} & 0.543 & --- \\
+\rowcolor{green!10}
+My C16 v2 (acc-optimized) & \good{\textbf{79.49}} & \good{\textbf{0.0274}} & \good{\textbf{0.518}} & 15.63 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\vspace{0.3cm}
+
+\begin{alertblock}{Key Takeaway}
+\small
+C16 v2 achieves the \textbf{best balance}: accuracy only 0.84\% below paper, while privacy (MSE) remains \good{+30\%} better than paper. SSIM also improved from 0.543 $\to$ \good{0.518}.
+\end{alertblock}
+
+\end{frame}
+
+% ============================================================================
+% NEXT STEPS
+% ============================================================================
+\begin{frame}{Next Steps}
+
+\begin{enumerate}\setlength{\itemsep}{10pt}
+    \item \textbf{Continue tuning accuracy-optimized config}\\
+    {\small Further weaken defense ($\sigma$=0.015, $\lambda$=6, AT=0.10) to reach Acc $\geq$ 80\%}
+
+    \item \textbf{TinyImageNet experiments}\\
+    {\small Run SCA\_new CEM with ResNet-110 on TinyImageNet (scripts ready)}
+
+    \item \textbf{Thesis writing}\\
+    {\small Begin structuring methodology and experimental chapters}
+\end{enumerate}
+
+\end{frame}
+
+\end{document}
