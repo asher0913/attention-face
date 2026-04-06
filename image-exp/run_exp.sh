@@ -85,8 +85,8 @@ LR=0.05
 # exp01 = FaceScrub exp13 config (best privacy)
 # exp02 = FaceScrub exp17 config (strong defense)
 EXPERIMENTS=(
-  "exp01  24  0.06  0.20  1.0   8  3   64   64  3  120"
-  "exp02  40  0.06  0.25  0.8   8  4   64  128  3  120"
+  "exp01  24  0.06  0.20  1.0   8  3   64   64  3  300"
+  "exp02  40  0.06  0.25  0.8   8  4   64  128  3  300"
 )
 
 TOTAL=${#EXPERIMENTS[@]}
