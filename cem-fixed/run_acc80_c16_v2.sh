@@ -1,14 +1,17 @@
 #!/bin/bash
 # =============================================================================
-# run_acc80.sh — FaceScrub CEM-fixed: accuracy-optimized experiment v3
+# run_acc80.sh — FaceScrub CEM-fixed: accuracy-optimized experiment v2
 #
 # Target:  Acc ≈ 80%  (paper Noise_ARL+CEM = 80.33%)
 #          MSE ≈ 0.023 (~10% above paper's 0.0211)
 #
-# History:
-#   v1 (run_acc80_c16_v1.sh): σ=0.035, λ=14, AT=0.15 → Acc=79.17%, MSE=0.0278
-#   v2 (run_acc80_c16_v2.sh): σ=0.025, λ=10, AT=0.15 → Acc=79.49%, MSE=0.0274
-#   v3 (this):                σ=0.015, λ=6,  AT=0.10 → target Acc~80%, MSE~0.023
+# Based on acc80-1 (C16 v1): Acc=79.17%, MSE=0.0278, SSIM=0.516
+# Changes vs v1:
+#   σ:  0.035 → 0.025  (weaker noise → higher acc)
+#   λ:  14    → 10     (weaker CEM → higher acc, lower MSE)
+#   Everything else unchanged (C16 bottleneck, AT_STR=0.15, slot params)
+#
+# Previous saved as: run_acc80_c16_v1.sh
 #
 # Usage: bash run_acc80.sh [GPU_ID]   (default GPU=0)
 # =============================================================================
@@ -40,7 +43,7 @@ lexp() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" \
              | tee -a "${MASTER_LOG}"; }
 
 lm "======================================================================"
-lm " run_acc80.sh v3  |  FaceScrub accuracy-optimized (C16)  |  GPU ${GPU_ID}"
+lm " run_acc80.sh v2  |  FaceScrub accuracy-optimized (C16)  |  GPU ${GPU_ID}"
 lm " Run dir  :  ${RUN_DIR}"
 lm "======================================================================"
 
@@ -56,7 +59,7 @@ SCHEME=V2_epoch
 REGULARIZATION=Gaussian_kl
 LOG_ENTROPY=1
 AT_REG=SCA_new
-AT_REG_STR=0.10                # v2=0.15 → v3=0.10
+AT_REG_STR=0.15
 TRAIN_AE=res_normN4C64
 TEST_AE=res_normN8C64
 GAN_LOSS=SSIM
@@ -66,9 +69,9 @@ ATTACK_EPOCHS=50
 LR=0.05
 EPOCHS=300
 
-# ── more aggressive defense weakening (v3) ─────────────────────────────────
-LAMBD=6                        # v2=10 → v3=6
-NOISE=0.015                    # v2=0.025 → v3=0.015
+# ── weakened defense (v2) ──────────────────────────────────────────────────
+LAMBD=10                      # v1=14 → v2=10
+NOISE=0.025                   # v1=0.035 → v2=0.025
 VT=0.15
 LS=1.0
 SLOTS=8
@@ -84,13 +87,13 @@ EXP_LOG="${RUN_DIR}/${EID}.log"
 EFF=$(awk "BEGIN{ printf \"%.1f\", ${LAMBD} * ${LS} }")
 THR=$(awk "BEGIN{ printf \"%.2e\", ${VT} * ${NOISE}^2 }")
 
-FOLDER="saves/facescrub/${AT_REG}_cemfixed_acc80c16v3_vt${VT}"
+FOLDER="saves/facescrub/${AT_REG}_cemfixed_acc80c16v2_vt${VT}"
 FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk${BANK}_sd${SDIM}_wu${WARMUP}_at${AT_REG_STR}_bn${BOTTLENECK}"
 
 {
     printf '\n'
     printf '%.0s=' {1..72}; printf '\n'
-    printf ' Accuracy-optimized experiment v3 (C16 bottleneck, aggressive)\n'
+    printf ' Accuracy-optimized experiment v2 (C16 bottleneck, weaker defense)\n'
     printf '   lambd=%-4s  noise=%-5s  var_thr=%-5s  loss_scale=%s  at_reg_str=%s\n' \
            "${LAMBD}" "${NOISE}" "${VT}" "${LS}" "${AT_REG_STR}"
     printf '   bottleneck=%s\n' "${BOTTLENECK}"
@@ -98,8 +101,8 @@ FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk$
     printf '   slots=%-3s  slot_dim=%s  iters=%s  bank=%s  warmup=%s  epochs=%s\n' \
            "${SLOTS}" "${SDIM}" "${ITERS}" "${BANK}" "${WARMUP}" "${EPOCHS}"
     printf '   Target: Acc ~80%%, MSE ~0.023\n'
-    printf '   Ref v2 (C16): Acc=79.49%%, MSE=0.0274, SSIM=0.518\n'
     printf '   Ref v1 (C16): Acc=79.17%%, MSE=0.0278, SSIM=0.516\n'
+    printf '   Ref exp13 (C8): Acc=78.15%%, MSE=0.0258\n'
     printf '%.0s=' {1..72}; printf '\n'
 } | tee -a "${EXP_LOG}" | tee -a "${MASTER_LOG}"
 
@@ -193,8 +196,8 @@ lexp "[${EID}] <<<<<< ATTACK OK  $(date)"
 
 lm ""
 lm "======================================================================"
-lm " DONE — v3 experiment complete"
+lm " DONE — v2 experiment complete"
 lm "   Log: ${EXP_LOG}"
 lm "   Target: Acc ~80%, MSE ~0.023"
-lm "   Changes vs v2: sigma 0.025->0.015, lambda 10->6, AT_STR 0.15->0.10"
+lm "   Changes vs v1: sigma 0.035->0.025, lambda 14->10"
 lm "======================================================================"

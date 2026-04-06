@@ -281,7 +281,7 @@ class CifarResNet(nn.Module):
             noise_smash = noise_smash.to(device)
             server_macs, server_params = profile(self.cloud, inputs=(noise_smash, ))
             noise_final = self.cloud(noise_smash)
-            noise_final = F.adaptive_avg_pool2d(noise_final, 1)
+            noise_final = F.avg_pool2d(noise_final, 8)
             noise_final = noise_final.view(noise_final.size(0), -1)
             clas_macs, clas_params = profile(self.classifier,inputs=(noise_final,))
             server_macs += clas_macs
@@ -313,14 +313,14 @@ class CifarResNet(nn.Module):
 
             smashed_data = self.local(noise_input) #CPU warm up
             output = self.cloud(smashed_data)
-            output = F.adaptive_avg_pool2d(output, 1)
+            output = F.avg_pool2d(output, 8)
             output = output.view(output.size(0), -1)
             output = self.classifier(output)
             start_time = time.time()
             for _ in range(500):
                 smashed_data = self.local(noise_input)
                 output = self.cloud(smashed_data)
-                output = F.adaptive_avg_pool2d(output, 1)
+                output = F.avg_pool2d(output, 8)
                 output = output.view(output.size(0), -1)
                 output = self.classifier(output)
             lapse_cpu = (time.time() - start_time)/500
@@ -360,7 +360,7 @@ class CifarResNet(nn.Module):
         '''Calculate client backward on CPU'''
         smashed_data = self.local(noise_input) #CPU warm up
         output = self.cloud(smashed_data)
-        output = F.adaptive_avg_pool2d(output, 1)
+        output = F.avg_pool2d(output, 8)
         output = output.view(output.size(0), -1)
         output = self.classifier(output)
         f_loss = criterion(output, noise_label)
@@ -371,7 +371,7 @@ class CifarResNet(nn.Module):
         for _ in range(500):
             smashed_data = self.local(noise_input)
             output = self.cloud(smashed_data)
-            output = F.adaptive_avg_pool2d(output, 1)
+            output = F.avg_pool2d(output, 8)
             output = output.view(output.size(0), -1)
             output = self.classifier(output)
             f_loss = criterion(output, noise_label)
@@ -386,7 +386,7 @@ class CifarResNet(nn.Module):
           for _ in range(500):
               smashed_data = self.local(noise_input)
               output = self.cloud(smashed_data.detach())
-              output = F.adaptive_avg_pool2d(output, 1)
+              output = F.avg_pool2d(output, 8)
               output = output.view(output.size(0), -1)
               output = self.classifier(output)
               f_loss = criterion(output, noise_label)
@@ -415,7 +415,7 @@ class CifarResNet(nn.Module):
           for _ in range(100):
               smashed_data = self.local(noise_input)
               output = self.cloud(smashed_data.detach())
-              output = F.adaptive_avg_pool2d(output, 1)
+              output = F.avg_pool2d(output, 8)
               output = output.view(output.size(0), -1)
               output = self.classifier(output)
               f_loss = criterion(output, noise_label)
@@ -425,7 +425,7 @@ class CifarResNet(nn.Module):
           for _ in range(500):
               smashed_data = self.local(noise_input)
               output = self.cloud(smashed_data.detach())
-              output = F.adaptive_avg_pool2d(output, 1)
+              output = F.avg_pool2d(output, 8)
               output = output.view(output.size(0), -1)
               output = self.classifier(output)
               f_loss = criterion(output, noise_label)
@@ -454,7 +454,7 @@ class CifarResNet(nn.Module):
   def forward(self, x):
       self.local_output = self.local(x)
       x = self.cloud(self.local_output)
-      x = F.adaptive_avg_pool2d(x, 1)
+      x = F.avg_pool2d(x, 8)
       x = x.view(x.size(0), -1)
       x = self.classifier(x)
       return x

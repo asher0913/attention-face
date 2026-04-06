@@ -1,4 +1,3 @@
-import gc
 import torch
 import numpy as np
 import torch.nn as nn
@@ -9,7 +8,7 @@ from utils import freeze_model_bn, average_weights, DistanceCorrelationLoss, spu
 from thop import profile
 import logging
 from torch.autograd import Variable
-from model_architectures.resnet_cifar import ResNet20, ResNet32, ResNet56, ResNet110
+from model_architectures.resnet_cifar import ResNet20, ResNet32
 from model_architectures.resnet_imagenet import Imagenet_ResNet20
 from model_architectures.mobilenetv2 import MobileNetV2
 from model_architectures.vgg import vgg11, vgg13, vgg11_bn, vgg13_bn,vgg11_bn_sgm
@@ -481,8 +480,8 @@ class MIA_train: # main class for every thing
 
         if self.cutting_layer == 0:
             self.logger.debug("Centralized Learning Scheme:")
-        if "resnet" in arch and "imagenet" not in arch:
-            self.logger.debug("Split Learning Scheme: Overall Cutting_layer {}/{}".format(self.cutting_layer, arch))
+        if "resnet20" in arch:
+            self.logger.debug("Split Learning Scheme: Overall Cutting_layer {}/10".format(self.cutting_layer))
         if "vgg11" in arch:
             self.logger.debug("Split Learning Scheme: Overall Cutting_layer {}/13".format(self.cutting_layer))
         if "mobilenetv2" in arch:
@@ -755,12 +754,6 @@ class MIA_train: # main class for every thing
         elif arch == "resnet32":
             model = ResNet32(cutting_layer, self.logger, num_client=self.num_client, num_class=self.num_class,
                              initialize_different=self.initialize_different, adds_bottleneck=self.adds_bottleneck, bottleneck_option = self.bottleneck_option, double_local_layer=self.double_local_layer,upsize=self.upsize)
-        elif arch == "resnet56":
-            model = ResNet56(cutting_layer, self.logger, num_client=self.num_client, num_class=self.num_class,
-                             initialize_different=self.initialize_different, adds_bottleneck=self.adds_bottleneck, bottleneck_option = self.bottleneck_option, double_local_layer=self.double_local_layer,upsize=self.upsize,SCA=self.SCA)
-        elif arch == "resnet110":
-            model = ResNet110(cutting_layer, self.logger, num_client=self.num_client, num_class=self.num_class,
-                             initialize_different=self.initialize_different, adds_bottleneck=self.adds_bottleneck, bottleneck_option = self.bottleneck_option, double_local_layer=self.double_local_layer,upsize=self.upsize,SCA=self.SCA)
         elif arch == "vgg13":
             model = vgg13(cutting_layer, self.logger, num_client=self.num_client, num_class=self.num_class,
                           initialize_different=self.initialize_different, adds_bottleneck=self.adds_bottleneck, bottleneck_option = self.bottleneck_option, double_local_layer=self.double_local_layer)
@@ -1430,7 +1423,7 @@ class MIA_train: # main class for every thing
             output = F.avg_pool2d(output, 4)
             output = output.view(output.size(0), -1)
             output = self.classifier(output)
-        elif self.arch in ("resnet20", "resnet32", "resnet56", "resnet110"):
+        elif self.arch == "resnet20" or self.arch == "resnet32":
             # output = F.avg_pool2d(output, 8)
             output = F.adaptive_avg_pool2d(output,(1,1))
             output = output.view(output.size(0), -1)
@@ -1669,7 +1662,7 @@ class MIA_train: # main class for every thing
                     output = F.avg_pool2d(output, 4)
                     output = output.view(output.size(0), -1)
                     output = self.classifier(output)
-                elif self.arch in ("resnet20", "resnet32", "resnet56", "resnet110"):
+                elif self.arch == "resnet20" or self.arch == "resnet32":
                     # output = F.avg_pool2d(output, 8)
                     output = F.adaptive_avg_pool2d(output,(1,1))
                     output = output.view(output.size(0), -1)
@@ -2206,33 +2199,41 @@ class MIA_train: # main class for every thing
         
 
             self.f.eval()
+            # summary(self.f.cuda(), input_size=self.sample_image.shape)
+            # summary(self.model.cuda(), input_size=self.sample_image.shape)
+            with torch.cuda.device(0):
+                flops, params = get_model_complexity_info(self.f.cuda(), (3, 32, 32), as_strings=True, print_per_layer_stat=True)
+                print(f"FLOPs: {flops}, Parameters: {params}")        
+                flops, params = get_model_complexity_info(self.model.cuda(), (3, 32, 32), as_strings=True, print_per_layer_stat=True)
+                print(f"FLOPs: {flops}, Parameters: {params}")    
             model1_params = sum(p.numel() for p in self.f.parameters())
             model2_params = sum(p.numel() for p in self.model.parameters())
             print(f"Model 1 Params: {model1_params}, Model 2 Params: {model2_params}")
             self.model.eval()
             with torch.no_grad():
-                img_size = 64 if (self.sample_image is not None and self.sample_image.shape[-1] == 64) else 32
-                input_tensor = torch.randn(128, 3, img_size, img_size)
-
+                
+                input_tensor = torch.randn(128, 3, 32, 32)  
+                
                 if torch.cuda.is_available():
                     input_tensor = input_tensor.cuda()
                     self.model.cuda()
                     self.f.cuda()
-                    torch.cuda.synchronize()
+                    torch.cuda.synchronize()  # 确保所有CUDA核心同步
+                
 
                 start_time = time.time()
                 for i in range(100):
                     outputs = self.model(input_tensor)
-
+                
+                # 如果使用CUDA，需要同步确保所有计算完成
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
-
+                
+                # 停止计时
                 end_time = time.time()
-                total_time = end_time - start_time
-                print(f"Inference time: {total_time * 1000:.2f} ms")
 
-                del input_tensor, outputs
-                torch.cuda.empty_cache()
+                total_time = end_time - start_time
+                print(f"推理时间: {total_time * 1000:.2f} ms")  # 输出以毫秒为单位
 
             
             LOG = None
@@ -2304,7 +2305,7 @@ class MIA_train: # main class for every thing
                     ir = F.avg_pool2d(ir, 4)
                     ir = ir.view(ir.size(0), -1)
                     ir = self.classifier(ir)
-                elif self.arch in ("resnet20", "resnet32", "resnet56", "resnet110"):
+                elif self.arch == "resnet20" or self.arch == "resnet32":
                     ir = F.adaptive_avg_pool2d(ir, (1, 1))
                     ir = ir.view(ir.size(0), -1)
                     ir = self.classifier(ir)
@@ -2665,8 +2666,6 @@ class MIA_train: # main class for every thing
             return all_test_losses.avg, ssim_test_losses.avg, psnr_test_losses.avg
 
     def train_infer_attack(self,train_data,test_data,MIA_optimizer,attack_num_epochs,noise_aware,attack_batchsize,loss_type,MIA_lr,logger,path_dict,input_nc,input_dim):
-            gc.collect()
-            torch.cuda.empty_cache()
             self.feature_size = self.model.get_smashed_data_size()
             # Fix: ResNet probes with 32x32, but TinyImageNet/FaceScrub are 64x64.
             # Re-probe with actual image size to get correct smashed data dimensions.
@@ -2957,7 +2956,7 @@ class MIA_train: # main class for every thing
                         pred = F.avg_pool2d(pred, 4)
                         pred = pred.view(pred.size(0), -1)
                         pred = self.classifier(pred)
-                    elif self.arch in ("resnet20", "resnet32", "resnet56", "resnet110"):
+                    elif self.arch == "resnet20" or self.arch == "resnet32":
                         pred = F.adaptive_avg_pool2d(pred, (1, 1))
                         pred = pred.view(pred.size(0), -1)
                         pred = self.classifier(pred)
@@ -3124,26 +3123,25 @@ class MIA_train: # main class for every thing
 
         criterion = nn.MSELoss()
 
-        with torch.no_grad():
-            for i, (input, target) in enumerate(sp_testloader):
-                input = input.cuda()
-                img, ir=self.gen_inp_feat_pair(input,local_model)
-                decoder.eval()
-                img, ir = img.type(torch.FloatTensor), ir.type(torch.FloatTensor)
-                img, ir = Variable(img).to(device), Variable(ir).to(device)
-                if "Gaussian" in self.regularization_option:
-                    sigma = self.regularization_strength
-                    noise = sigma * torch.randn_like(ir).cuda()
-                    ir += noise
-                output_imgs = decoder(ir)
-                reconstruction_loss = criterion(output_imgs, img)
-                ssim_loss_val = ssim_loss(output_imgs, img)
-                psnr_loss_val = get_PSNR(img, output_imgs)
-                all_test_losses.update(reconstruction_loss.item(), ir.size(0))
-                ssim_test_losses.update(ssim_loss_val.item(), ir.size(0))
-                psnr_test_losses.update(psnr_loss_val.item(), ir.size(0))
-                if (i + 1) % 100 == 0:
-                    save_images(img, output_imgs, num_epochs, path_dict["test_output_path"], offset=i, batch_size=batch_size)
+        for i, (input, target) in enumerate(sp_testloader):
+            input = input.cuda()
+            img, ir=self.gen_inp_feat_pair(input,local_model)
+            decoder.eval()
+            img, ir = img.type(torch.FloatTensor), ir.type(torch.FloatTensor)
+            img, ir = Variable(img).to(device), Variable(ir).to(device)
+            if "Gaussian" in self.regularization_option:
+                sigma = self.regularization_strength
+                noise = sigma * torch.randn_like(ir).cuda()
+                ir += noise
+            output_imgs = decoder(ir)
+            reconstruction_loss = criterion(output_imgs, img)
+            ssim_loss_val = ssim_loss(output_imgs, img)
+            psnr_loss_val = get_PSNR(img, output_imgs)
+            all_test_losses.update(reconstruction_loss.item(), ir.size(0))
+            ssim_test_losses.update(ssim_loss_val.item(), ir.size(0))
+            psnr_test_losses.update(psnr_loss_val.item(), ir.size(0))
+            if (i + 1) % 100 == 0:
+                save_images(img, output_imgs, num_epochs, path_dict["test_output_path"], offset=i, batch_size=batch_size)
 
         logger.debug(
             "MSE Loss on ALL Image is {:.4f} (Real Attack Results on the Target Client)".format(all_test_losses.avg))
@@ -3206,7 +3204,7 @@ class MIA_train: # main class for every thing
                         save_activation = F.avg_pool2d(save_activation, 4)
                         save_activation = save_activation.view(save_activation.size(0), -1)
                         save_activation = self.classifier(save_activation)
-                    elif self.arch in ("resnet20", "resnet32", "resnet56", "resnet110"):
+                    elif self.arch == "resnet20" or self.arch == "resnet32":
                         save_activation = F.adaptive_avg_pool2d(save_activation, (1, 1))
                         save_activation = save_activation.view(save_activation.size(0), -1)
                         save_activation = self.classifier(save_activation)
