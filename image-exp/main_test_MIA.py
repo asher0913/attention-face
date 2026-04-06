@@ -168,6 +168,7 @@ for date_0 in date_list:
                     num_client = num_client, dataset=args.dataset, save_dir=save_dir_name,random_seed=random_seed,
                     regularization_option=args.regularization, regularization_strength = args.regularization_strength, AT_regularization_option=args.AT_regularization, AT_regularization_strength = args.AT_regularization_strength, log_entropy=args.log_entropy,
                     gan_AE_type = args.gan_AE_type, bottleneck_option = args.bottleneck_option, gan_loss_type=args.gan_loss_type,
+                    var_threshold=args.var_threshold,
                     attention_num_slots=args.attention_num_slots, attention_num_heads=args.attention_num_heads,
                     attention_num_iterations=args.attention_num_iterations, attention_loss_scale=args.attention_loss_scale,
                     attention_warmup_epochs=args.attention_warmup_epochs, attention_bank_size=args.attention_bank_size,
