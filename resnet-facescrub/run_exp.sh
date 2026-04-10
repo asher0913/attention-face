@@ -1,9 +1,18 @@
 #!/bin/bash
 # =============================================================================
-# run_exp.sh — FaceScrub WideResNet-28-10 + SCA_new defense
+# run_exp.sh — FaceScrub WRN-28-10 + SCA_new defense  (Round 2)
 #
-# Uses exp13's best defense config from cem-fixed (λ=24, σ=0.06, vt=0.20)
-# but swaps VGG-11 → WideResNet-28-10 (~36M params) for better accuracy.
+# Round 1 result: cutlayer=4 → Acc=91%, MSE=0.011 (defense failed)
+# Root cause: residual connections in local model let info bypass bottleneck
+#
+# Fix: cut BEFORE residual blocks so local model = plain conv (like VGG)
+#   cutlayer=1 → local = 7x7 conv only (0 residual blocks)
+#   cutlayer=2 → local = 7x7 conv + 1 BasicBlock (1 residual block)
+# Cloud keeps all remaining ResNet blocks → strong classification
+#
+# Smashed data matched to VGG: 8×16×16 = 2048 dim in all experiments
+#   cutlayer=1: 16ch 32×32 → C8S2 bottleneck → 8ch 16×16
+#   cutlayer=2: 160ch 16×16 → C8S1 bottleneck → 8ch 16×16
 #
 # Usage: bash run_exp.sh [GPU_ID]   (default GPU=0)
 # =============================================================================
@@ -34,19 +43,16 @@ lexp() { printf '[%s] %s\n' "$(date '+%H:%M:%S')" "$*" \
              | tee -a "${EXP_LOG}" \
              | tee -a "${MASTER_LOG}"; }
 
-# ── fixed parameters ────────────────────────────────────────────────────────
+# ── fixed parameters ─────────────────────────────────────────────────────────
 ARCH=wideresnet28_10
-BATCH_SIZE=128          # WRN-28-10 is ~36M params, use smaller batch to fit GPU
+BATCH_SIZE=128
 NUM_CLIENT=1
 RANDOM_SEED=125
-CUTLAYER=4
-BOTTLENECK=noRELU_C8S1
 DATASET=facescrub
 SCHEME=V2_epoch
 REGULARIZATION=Gaussian_kl
 LOG_ENTROPY=1
 AT_REG=SCA_new
-AT_REG_STR=0.3
 TRAIN_AE=res_normN4C64
 TEST_AE=res_normN8C64
 GAN_LOSS=SSIM
@@ -56,13 +62,23 @@ ATTACK_EPOCHS=50
 LR=0.05
 
 # ── experiment table ─────────────────────────────────────────────────────────
-# EID  LAMBD  NOISE  VT   LS  SLOTS  ITERS  BANK  SDIM  WARMUP  EPOCHS
+# Columns: EID  CUTLAYER  BOTTLENECK  AT_STR  LAMBD  NOISE  VT  LS  SLOTS  ITERS  BANK  SDIM  WARMUP  EPOCHS
 #
-# exp01: exp13 config (best from cem-fixed VGG run)
-# exp02: slightly stronger defense for comparison
+# exp01: cutlayer=1 (no residual in local) + C8S2 + exp13 defense
+#   Local = 7x7 conv only → smashed = 8×16×16 = 2048 (same as VGG)
+#   Expected: VGG-like defense, Acc ~81-83%, MSE ~0.020-0.025
+#
+# exp02: cutlayer=1 + C8S2 + stronger defense (safety net if exp01 acc too high)
+#   Expected: Acc ~79-81%, MSE ~0.025-0.030
+#
+# exp03: cutlayer=2 (1 residual block) + C8S1 + exp13 defense
+#   Local = 7x7 conv + 1 BasicBlock → smashed = 8×16×16 = 2048
+#   Expected: slightly more info leakage than exp01, Acc ~83-86%, MSE ~0.015-0.022
+#   Purpose: measure impact of 1 residual block vs 0
 EXPERIMENTS=(
-  "exp01  24  0.06  0.20  1.0   8  3   64   64  3  300"
-  "exp02  32  0.06  0.20  1.0   8  3   64  128  3  300"
+  "exp01  1  noRELU_C8S2  0.3  24  0.06  0.20  1.0   8  3   64   64  3  300"
+  "exp02  1  noRELU_C8S2  0.3  32  0.08  0.25  1.0   8  3   64  128  3  300"
+  "exp03  2  noRELU_C8S1  0.3  24  0.06  0.20  1.0   8  3   64   64  3  300"
 )
 
 TOTAL=${#EXPERIMENTS[@]}
@@ -70,7 +86,7 @@ PASS=0
 FAIL=0
 
 lm "======================================================================"
-lm " run_exp.sh  |  FaceScrub WideResNet-28-10  |  GPU ${GPU_ID}"
+lm " run_exp.sh  |  FaceScrub WRN-28-10 Round 2 (cutlayer fix)  |  GPU ${GPU_ID}"
 lm " Run dir  :  ${RUN_DIR}"
 lm " Experiments: ${TOTAL}"
 lm "======================================================================"
@@ -80,7 +96,7 @@ lm "======================================================================"
 # ══════════════════════════════════════════════════════════════════════════════
 for ENTRY in "${EXPERIMENTS[@]}"; do
 
-    read -r EID LAMBD NOISE VT LS SLOTS ITERS BANK SDIM WARMUP EPOCHS <<< "${ENTRY}"
+    read -r EID CUTLAYER BOTTLENECK AT_REG_STR LAMBD NOISE VT LS SLOTS ITERS BANK SDIM WARMUP EPOCHS <<< "${ENTRY}"
 
     EXP_LOG="${RUN_DIR}/${EID}.log"
     CFG="${RUN_DIR}/${EID}_config.txt"
@@ -88,13 +104,16 @@ for ENTRY in "${EXPERIMENTS[@]}"; do
     EFF=$(awk "BEGIN{ printf \"%.1f\", ${LAMBD} * ${LS} }")
     THR=$(awk "BEGIN{ printf \"%.2e\", ${VT} * ${NOISE}^2 }")
 
-    FOLDER="saves/facescrub/${AT_REG}_wrn2810_lg${LOG_ENTROPY}_vt${VT}"
+    FOLDER="saves/facescrub/${AT_REG}_wrn2810_cut${CUTLAYER}_lg${LOG_ENTROPY}_vt${VT}"
     FNAME="l${LAMBD}_n${NOISE}_ep${EPOCHS}_vt${VT}_ls${LS}_sl${SLOTS}_it${ITERS}_bk${BANK}_sd${SDIM}_wu${WARMUP}"
     HEADS=4
 
     cat > "${CFG}" << CFGEOF
 exp_id=${EID}
 arch=${ARCH}
+cutlayer=${CUTLAYER}
+bottleneck=${BOTTLENECK}
+at_reg_str=${AT_REG_STR}
 lambd=${LAMBD}
 noise=${NOISE}
 var_thr=${VT}
@@ -114,9 +133,9 @@ CFGEOF
     {
         printf '\n'
         printf '%.0s=' {1..72}; printf '\n'
-        printf ' %s  [%s]\n' "${EID}" "${ARCH}"
-        printf '   lambd=%-4s  noise=%-5s  var_thr=%-5s  loss_scale=%s\n' \
-               "${LAMBD}" "${NOISE}" "${VT}" "${LS}"
+        printf ' %s  [%s]  cutlayer=%s  bottleneck=%s\n' "${EID}" "${ARCH}" "${CUTLAYER}" "${BOTTLENECK}"
+        printf '   lambd=%-4s  noise=%-5s  var_thr=%-5s  loss_scale=%s  at_str=%s\n' \
+               "${LAMBD}" "${NOISE}" "${VT}" "${LS}" "${AT_REG_STR}"
         printf '   effective_strength=%-5s  threshold=%s\n' "${EFF}" "${THR}"
         printf '   slots=%-3s  slot_dim=%s  iters=%s  bank=%s  warmup=%s  epochs=%s\n' \
                "${SLOTS}" "${SDIM}" "${ITERS}" "${BANK}" "${WARMUP}" "${EPOCHS}"
@@ -163,14 +182,14 @@ CFGEOF
 
     if [ "${TRAIN_RC}" -ne 0 ]; then
         lexp "[${EID}] !!! TRAINING FAILED (exit=${TRAIN_RC})  $(date)"
-        sed -i '' "s/^train_status=PENDING/train_status=FAILED/"   "${CFG}"
-        sed -i '' "s/^attack_status=PENDING/attack_status=SKIPPED/" "${CFG}"
+        sed -i "s/^train_status=PENDING/train_status=FAILED/"   "${CFG}"
+        sed -i "s/^attack_status=PENDING/attack_status=SKIPPED/" "${CFG}"
         FAIL=$((FAIL + 1))
         continue
     fi
 
     lexp "[${EID}] <<<<<< TRAINING OK  $(date)"
-    sed -i '' "s/^train_status=PENDING/train_status=OK/" "${CFG}"
+    sed -i "s/^train_status=PENDING/train_status=OK/" "${CFG}"
 
     # ── Phase 2: MIA Attack ──────────────────────────────────────────────────
     lexp "[${EID}] >>>>>> ATTACK START  $(date)"
@@ -210,13 +229,13 @@ CFGEOF
 
     if [ "${ATTACK_RC}" -ne 0 ]; then
         lexp "[${EID}] !!! ATTACK FAILED (exit=${ATTACK_RC})  $(date)"
-        sed -i '' "s/^attack_status=PENDING/attack_status=FAILED/" "${CFG}"
+        sed -i "s/^attack_status=PENDING/attack_status=FAILED/" "${CFG}"
         FAIL=$((FAIL + 1))
         continue
     fi
 
     lexp "[${EID}] <<<<<< ATTACK OK  $(date)"
-    sed -i '' "s/^attack_status=PENDING/attack_status=OK/" "${CFG}"
+    sed -i "s/^attack_status=PENDING/attack_status=OK/" "${CFG}"
     PASS=$((PASS + 1))
 
 done
@@ -227,12 +246,15 @@ lm " DONE  |  ${PASS} passed  |  ${FAIL} failed  |  ${TOTAL} total"
 lm "======================================================================"
 
 CSV="${RUN_DIR}/summary.csv"
-echo "exp_id,arch,lambd,noise,var_thr,loss_scale,slots,slot_dim,iters,bank,warmup,epochs,effective_strength,threshold,train_status,attack_status,best_acc,train_mse,train_ssim,train_psnr,infer_mse,infer_ssim,infer_psnr" > "${CSV}"
+echo "exp_id,arch,cutlayer,bottleneck,at_reg_str,lambd,noise,var_thr,loss_scale,slots,slot_dim,iters,bank,warmup,epochs,effective_strength,threshold,train_status,attack_status,best_acc,train_mse,train_ssim,train_psnr,infer_mse,infer_ssim,infer_psnr" > "${CSV}"
 
 for CFG in "${RUN_DIR}"/exp*_config.txt; do
     [ -f "${CFG}" ] || continue
     EID=$(grep '^exp_id=' "${CFG}" | cut -d= -f2)
     EARCH=$(grep '^arch=' "${CFG}" | cut -d= -f2)
+    ECUT=$(grep '^cutlayer=' "${CFG}" | cut -d= -f2)
+    EBTL=$(grep '^bottleneck=' "${CFG}" | cut -d= -f2)
+    EATSTR=$(grep '^at_reg_str=' "${CFG}" | cut -d= -f2)
     ELAMBD=$(grep '^lambd=' "${CFG}" | cut -d= -f2)
     ENOISE=$(grep '^noise=' "${CFG}" | cut -d= -f2)
     EVT=$(grep '^var_thr=' "${CFG}" | cut -d= -f2)
@@ -257,7 +279,7 @@ for CFG in "${RUN_DIR}"/exp*_config.txt; do
     INFER_SSIM=$(grep 'SSIM Loss on ALL Image.*Real Attack' "${LOG}" 2>/dev/null | tail -1 | grep -o '[0-9]\.[0-9]*')
     INFER_PSNR=$(grep 'PSNR Loss on ALL Image.*Real Attack' "${LOG}" 2>/dev/null | tail -1 | grep -o '[0-9]\.[0-9]*')
 
-    echo "${EID},${EARCH:-},${ELAMBD:-},${ENOISE:-},${EVT:-},${ELS:-},${ESLOTS:-},${ESDIM:-},${EITERS:-},${EBANK:-},${EWARMUP:-},${EEPOCHS:-},${EEFF:-},${ETHR:-},${ETRAIN:-},${EATTACK:-},${BEST_ACC:-},${TRAIN_MSE:-},${TRAIN_SSIM:-},${TRAIN_PSNR:-},${INFER_MSE:-},${INFER_SSIM:-},${INFER_PSNR:-}" >> "${CSV}"
+    echo "${EID},${EARCH:-},${ECUT:-},${EBTL:-},${EATSTR:-},${ELAMBD:-},${ENOISE:-},${EVT:-},${ELS:-},${ESLOTS:-},${ESDIM:-},${EITERS:-},${EBANK:-},${EWARMUP:-},${EEPOCHS:-},${EEFF:-},${ETHR:-},${ETRAIN:-},${EATTACK:-},${BEST_ACC:-},${TRAIN_MSE:-},${TRAIN_SSIM:-},${TRAIN_PSNR:-},${INFER_MSE:-},${INFER_SSIM:-},${INFER_PSNR:-}" >> "${CSV}"
 done
 
 lm "Summary CSV: ${CSV}"
