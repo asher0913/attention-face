@@ -64,21 +64,26 @@ LR=0.05
 # ── experiment table ─────────────────────────────────────────────────────────
 # Columns: EID  CUTLAYER  BOTTLENECK  AT_STR  LAMBD  NOISE  VT  LS  SLOTS  ITERS  BANK  SDIM  WARMUP  EPOCHS
 #
-# exp01: cutlayer=1 (no residual in local) + C8S2 + exp13 defense
-#   Local = 7x7 conv only → smashed = 8×16×16 = 2048 (same as VGG)
-#   Expected: VGG-like defense, Acc ~81-83%, MSE ~0.020-0.025
+# Round 2 results (completed):
+#   exp01: cut=1 C8S2 l24 n.06 vt.20 sd64  → Acc=87.31%, MSE=0.0035, SSIM=0.8443
+#   exp02: cut=1 C8S2 l32 n.08 vt.25 sd128 → Acc=86.14%, MSE=0.0047, SSIM=0.8219
+#   exp03: cut=2 C8S1 l24 n.06 vt.20 sd64  → Acc=88.99%, MSE=0.0071, SSIM=0.7743 ★ winner
 #
-# exp02: cutlayer=1 + C8S2 + stronger defense (safety net if exp01 acc too high)
-#   Expected: Acc ~79-81%, MSE ~0.025-0.030
+# VGG11 best:                              → Acc=79.49%, MSE=0.0274, SSIM=0.532
 #
-# exp03: cutlayer=2 (1 residual block) + C8S1 + exp13 defense
-#   Local = 7x7 conv + 1 BasicBlock → smashed = 8×16×16 = 2048
-#   Expected: slightly more info leakage than exp01, Acc ~83-86%, MSE ~0.015-0.022
-#   Purpose: measure impact of 1 residual block vs 0
+# Round 3 goal: push defense aggressively on exp03 recipe (cut=2 + C8S1)
+#   target: Acc drop to ~80-82%, MSE > 0.0274, SSIM < 0.53 (beat VGG on privacy)
+#
+# exp04 = exp03 winning recipe + MUCH stronger defense:
+#   lambd  24 → 64  (2.67x)   dominant CEM weight
+#   noise  0.06 → 0.12 (2x)   stronger Gaussian perturbation (threshold grows 4x)
+#   var_thr 0.20 → 0.30 (1.5x) higher variance floor
+#   at_str 0.3 → 0.5         stronger slot-attention regularization
+#   sdim   64 → 128          richer clustering capacity
+#   effective_strength = 64 * 1.0 = 64      (was 24)
+#   threshold = 0.30 * 0.12^2 = 4.32e-03    (was 7.20e-04, 6x)
 EXPERIMENTS=(
-  "exp01  1  noRELU_C8S2  0.3  24  0.06  0.20  1.0   8  3   64   64  3  300"
-  "exp02  1  noRELU_C8S2  0.3  32  0.08  0.25  1.0   8  3   64  128  3  300"
-  "exp03  2  noRELU_C8S1  0.3  24  0.06  0.20  1.0   8  3   64   64  3  300"
+  "exp04  2  noRELU_C8S1  0.5  64  0.12  0.30  1.0   8  3   64  128  3  300"
 )
 
 TOTAL=${#EXPERIMENTS[@]}
