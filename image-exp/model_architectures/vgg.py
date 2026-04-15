@@ -500,9 +500,9 @@ def make_layers(cutting_layer,cfg, batch_norm=False, adds_bottleneck = False, bo
                     local += [nn.ReLU()]
                 if SCA:
                     if feature_size==12:
-                        lca_layer = LCALayer(input_shape=(8, feature_size, feature_size), num_neurons=1024, alpha=0.05, lmbda=0.01, num_iterations=1)
+                        lca_layer = LCALayer(input_shape=(bottleneck_channel_size, feature_size, feature_size), num_neurons=1024, alpha=0.05, lmbda=0.01, num_iterations=1)
                     else:
-                        lca_layer = LCALayer(input_shape=(8, feature_size, feature_size), num_neurons=8*feature_size*feature_size, alpha=0.05, lmbda=0.01, num_iterations=1)
+                        lca_layer = LCALayer(input_shape=(bottleneck_channel_size, feature_size, feature_size), num_neurons=bottleneck_channel_size*feature_size*feature_size, alpha=0.05, lmbda=0.01, num_iterations=1)
                     local+=[lca_layer]
 
                 if bottleneck_stride == 1:
