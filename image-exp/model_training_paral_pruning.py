@@ -2796,6 +2796,7 @@ class MIA_train: # main class for every thing
                         
 
             client_id=0
+            torch.cuda.empty_cache()  # release fragmented memory from training before attack
             self.attack(attack_num_epochs,self.model.local_list[client_id], decoder, optimizer,scheduler, train_data, test_data, logger, path_dict,
                             attack_batchsize, noise_aware=noise_aware, loss_type=loss_type)
 
@@ -2919,6 +2920,9 @@ class MIA_train: # main class for every thing
             print(f"Epoch {epoch+1}, Current LR: {current_lr}")
             if (epoch + 1) % train_output_freq == 0:
                 save_images(img, output, epoch, path_dict["train_output_path"], offset=0, batch_size=batch_size)
+            # ── validation pass: no gradients needed, free all cached fragments ──
+            decoder.eval()
+            torch.cuda.empty_cache()
             top1 = AverageMeter()
             # if epoch == 1:
             rec_inputs_list = []
@@ -2926,17 +2930,16 @@ class MIA_train: # main class for every thing
             for i, (input, target) in enumerate(testloader):
                 input = input.cuda()
                 img, ir=self.gen_inp_feat_pair(input,local_model)
-                # decoder.eval()
-                # img, ir = data
                 img, ir = img.type(torch.FloatTensor), ir.type(torch.FloatTensor)
                 img, ir = Variable(img).to(device), Variable(ir).to(device)
                 if "Gaussian" in self.regularization_option:
                     sigma = self.regularization_strength
                     noise = sigma * torch.randn_like(ir).cuda()
                     ir += noise
-                output = decoder(ir)
-                criterion_test = nn.MSELoss()
-                reconstruction_loss = criterion_test(output, img)
+                with torch.no_grad():
+                    output = decoder(ir)
+                    criterion_test = nn.MSELoss()
+                    reconstruction_loss = criterion_test(output, img)
 
                 ####test_reconstruction acc 
                 # if epoch==10:
@@ -2946,8 +2949,8 @@ class MIA_train: # main class for every thing
                 rec_inputs_list.append(rec_inputs.clone().cpu())  # 保存 inputs
                 targets_list.append(target.clone().cpu())
                 
-                pred = self.model.local_list[0](rec_inputs.cuda())
                 with torch.no_grad():
+                    pred = self.model.local_list[0](rec_inputs.cuda())
                     pred = self.f_tail(pred)
                     # if "Gaussian" in self.regularization_option:
                     #     sigma = self.regularization_strength
@@ -2996,6 +2999,7 @@ class MIA_train: # main class for every thing
             # This was leftover debug code that would crash FaceScrub runs by
             # overwriting self.save_dir with a non-existent CIFAR10 path.
             print('the pred acc is:',top1.avg)
+            decoder.train()  # restore train mode for next epoch
             for name, param in decoder.named_parameters():
                 self.writer.add_histogram("decoder_params/{}".format(name), param.clone().cpu().data.numpy(), epoch)
 
